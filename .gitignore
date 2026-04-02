@@ -1,0 +1,32 @@
+# OpenClaw runtime (never commit)
+../agents/
+../devices/
+../identity/
+../logs/
+../tasks/
+../telegram/
+../canvas/
+../openclaw.json*
+
+# Local DB / memory
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Node
+node_modules/
+npm-debug.log
+
+# Env / secrets
+.env
+.env.*
+*.key
+*.pem
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Temp / junk
+junk/

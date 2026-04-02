@@ -1,0 +1,23 @@
+[
+  {
+    "type": "function",
+    "name": "applyForJob",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "_jobId", "type": "uint256" },
+      { "name": "subdomain", "type": "string" },
+      { "name": "proof", "type": "bytes32[]" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "requestJobCompletion",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "_jobId", "type": "uint256" },
+      { "name": "_jobCompletionURI", "type": "string" }
+    ],
+    "outputs": []
+  }
+]

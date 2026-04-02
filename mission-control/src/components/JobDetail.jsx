@@ -1,0 +1,399 @@
+import { useState, useEffect } from 'react'
+import { StatusBadge } from './StatusBadge'
+import { resolveEns, shortAddr } from '../utils/ens'
+
+const IPFS_GW = 'https://ipfs.io/ipfs/'
+
+function IpfsLink({ uri }) {
+  if (!uri) return <span className="text-slate-500">—</span>
+  const cid = uri.replace('ipfs://', '')
+  const short = cid.slice(0, 10) + '...' + cid.slice(-6)
+  return (
+    <a href={IPFS_GW + cid} target="_blank" rel="noopener noreferrer"
+       className="text-blue-400 hover:text-blue-300 font-mono break-all">
+      {short}
+    </a>
+  )
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="flex justify-between items-start py-2 border-b border-slate-800 last:border-0 gap-4">
+      <span className="text-xs text-slate-500 shrink-0 w-24">{label}</span>
+      <span className="text-xs text-right break-all font-mono text-slate-300">{value}</span>
+    </div>
+  )
+}
+
+export function JobBrief({ spec, onClose }) {
+  const p = spec?.properties || {}
+  const durationDays = p.durationSeconds ? Math.round(p.durationSeconds / 86400) : null
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-screen overflow-y-auto">
+        <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-5 py-4 flex items-center justify-between">
+          <div className="text-sm font-semibold text-white">Job Brief</div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-lg leading-none">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Title</div>
+            <div className="text-base font-medium text-white leading-snug">{p.title || spec?.name || '—'}</div>
+          </div>
+
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Summary</div>
+            <div className="text-sm text-slate-300 leading-relaxed">{p.summary || '—'}</div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-slate-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-slate-500 mb-1">Payout</div>
+              <div className="text-sm font-semibold text-blue-400">
+                {p.payoutAGIALPHA ? Number(p.payoutAGIALPHA).toLocaleString() : '—'}
+              </div>
+              <div className="text-xs text-slate-600">AGIALPHA</div>
+            </div>
+            <div className="bg-slate-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-slate-500 mb-1">Duration</div>
+              <div className="text-sm font-semibold text-slate-200">{durationDays || '—'}</div>
+              <div className="text-xs text-slate-600">days</div>
+            </div>
+            <div className="bg-slate-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-slate-500 mb-1">Category</div>
+              <div className="text-xs font-semibold text-slate-200 capitalize leading-tight">{p.category || '—'}</div>
+              <div className="text-xs text-slate-600">type</div>
+            </div>
+          </div>
+
+          {p.details && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Details</div>
+              <div className="text-sm text-slate-400 leading-relaxed bg-slate-800/50 rounded-lg p-3">{p.details}</div>
+            </div>
+          )}
+
+          {p.deliverables?.length > 0 && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Deliverables</div>
+              <ul className="space-y-1.5">
+                {p.deliverables.map((d, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-blue-500 shrink-0 mt-0.5">→</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {p.acceptanceCriteria?.length > 0 && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Acceptance criteria</div>
+              <ul className="space-y-1.5">
+                {p.acceptanceCriteria.map((c, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-green-500 shrink-0 mt-0.5">✓</span>
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {p.requirements?.length > 0 && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Requirements</div>
+              <ul className="space-y-1.5">
+                {p.requirements.map((r, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-amber-500 shrink-0 mt-0.5">•</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {p.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {p.tags.map(t => (
+                <span key={t} className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">{t}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-5 py-4">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg border border-slate-700 text-slate-300 text-sm hover:bg-slate-800 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+
+function CompletionBrief({ data, onClose }) {
+  const maybeLinks = [
+    ['Deliverable', data?.image || data?.outputURI || data?.deliverableURI],
+    ['Metadata', data?.completionURI || data?.metadataURI || data?.uri],
+    ['Attachment', data?.attachmentURI || data?.artifactURI],
+  ].filter(([, value]) => value)
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-screen overflow-y-auto">
+        <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-5 py-4 flex items-center justify-between">
+          <div className="text-sm font-semibold text-white">Completion Brief</div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-lg leading-none">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {data?.properties?.validatorNote && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Validator note</div>
+              <div className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 rounded-lg p-3">
+                {typeof data.properties.validatorNote === 'string'
+                  ? data.properties.validatorNote
+                  : JSON.stringify(data.properties.validatorNote, null, 2)}
+              </div>
+            </div>
+          )}
+
+          {maybeLinks.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Linked assets</div>
+              {maybeLinks.map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3 border border-slate-800 rounded-lg p-2">
+                  <span className="text-xs text-slate-500">{label}</span>
+                  <IpfsLink uri={value} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <details className="rounded border border-slate-700 bg-slate-900/60 p-2">
+            <summary className="cursor-pointer text-slate-400">raw completion payload</summary>
+            <pre className="mt-2 text-[11px] text-slate-300 overflow-auto max-h-48">{JSON.stringify(data, null, 2)}</pre>
+          </details>
+        </div>
+
+        <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-5 py-4">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg border border-slate-700 text-slate-300 text-sm hover:bg-slate-800 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EnsRows({ job }) {
+  const [empEns, setEmpEns]     = useState(null)
+  const [agentEns, setAgentEns] = useState(null)
+
+  useEffect(() => { resolveEns(job.employer).then(setEmpEns) },       [job.employer])
+  useEffect(() => { resolveEns(job.assignedAgent).then(setAgentEns) }, [job.assignedAgent])
+
+  const fmtAddr = (addr, ens) => {
+    if (!addr) return '—'
+    return (
+      <a href={`https://etherscan.io/address/${addr}`} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200">
+        {ens
+          ? <><span>{ens}</span> <span className="text-slate-600">({shortAddr(addr)})</span></>
+          : <span>{shortAddr(addr)}</span>}
+      </a>
+    )
+  }
+
+  return (
+    <div>
+      <Row label="Payout"     value={job.payout} />
+      <Row label="Duration"   value={job.duration} />
+      <Row label="Employer"   value={fmtAddr(job.employer, empEns)} />
+      <Row label="Agent"      value={job.assignedAgent ? fmtAddr(job.assignedAgent, agentEns) : 'unassigned'} />
+      <Row label="Spec URI"   value={<IpfsLink uri={job.specURI} />} />
+      <Row label="Completion" value={job.completionRequested ? 'requested' : 'pending'} />
+      <Row label="Votes"      value={(job.approvals || 0) + ' approve / ' + (job.disapprovals || 0) + ' dispute'} />
+    </div>
+  )
+}
+
+export function JobDetail({ job, onRunIntake }) {
+  const [briefSpec, setBriefSpec]       = useState(null)
+  const [loadingBrief, setLoadingBrief] = useState(false)
+  const [briefError, setBriefError]     = useState(null)
+  const [completionMeta, setCompletionMeta] = useState(null)
+  const [loadingMeta, setLoadingMeta]   = useState(false)
+  const [showCompletionBrief, setShowCompletionBrief] = useState(false)
+
+  if (!job) {
+    return (
+      <div className="h-full flex items-center justify-center text-slate-600 text-sm">
+        Select a job to view details
+      </div>
+    )
+  }
+
+  const total       = (job.approvals || 0) + (job.disapprovals || 0)
+  const approvalPct = total > 0 ? Math.round((job.approvals / total) * 100) : 0
+  const ipfsCid     = job.specURI?.replace('ipfs://', '')
+
+  async function fetchCompletion() {
+    setLoadingMeta(true)
+    try {
+      const res = await fetch(`/api/job-metadata/${job.jobId}?type=completion`)
+      if (res.ok) setCompletionMeta(await res.json())
+      else {
+        const err = await res.json().catch(() => ({}))
+        setBriefError(err.error || `Failed to fetch completion metadata (HTTP ${res.status})`)
+      }
+    } catch {}
+    finally { setLoadingMeta(false) }
+  }
+
+  async function openBrief() {
+    setLoadingBrief(true)
+    setBriefError(null)
+    try {
+      // Fetch the IPFS spec directly — this has title, summary, deliverables etc.
+      const gateways = [
+        'https://ipfs.io/ipfs/',
+        'https://cloudflare-ipfs.com/ipfs/',
+        'https://gateway.pinata.cloud/ipfs/',
+      ]
+      let spec = null
+      for (const gw of gateways) {
+        try {
+          const res = await fetch(gw + ipfsCid, { signal: AbortSignal.timeout(8000) })
+          if (res.ok) { spec = await res.json(); break }
+        } catch { continue }
+      }
+      if (!spec) throw new Error('All IPFS gateways failed')
+      setBriefSpec(spec)
+    } catch (e) {
+      setBriefError(e.message)
+    } finally {
+      setLoadingBrief(false)
+    }
+  }
+
+  return (
+    <div className="h-full overflow-y-auto space-y-4">
+      {briefSpec && <JobBrief spec={briefSpec} onClose={() => setBriefSpec(null)} />}
+      {showCompletionBrief && completionMeta && <CompletionBrief data={completionMeta} onClose={() => setShowCompletionBrief(false)} />}
+
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono text-slate-500">Job #{job.jobId}</span>
+        <StatusBadge status={job.status} />
+      </div>
+
+      <EnsRows job={job} />
+
+      <div>
+        <div className="flex justify-between text-xs text-slate-500 mb-1">
+          <span>Approval ratio</span>
+          <span>{approvalPct}%</span>
+        </div>
+        <div className="bg-slate-800 rounded-full h-1.5 overflow-hidden">
+          <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: approvalPct + '%' }} />
+        </div>
+      </div>
+
+      {briefError && (
+        <div className="text-xs text-red-400 bg-red-950/30 border border-red-900 rounded p-2">{briefError}</div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={openBrief}
+          disabled={loadingBrief}
+          className="flex-1 text-xs py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors font-medium"
+        >
+          {loadingBrief ? 'fetching IPFS...' : 'view brief'}
+        </button>
+        <a
+          href={IPFS_GW + ipfsCid}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 text-xs py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors text-center"
+        >
+          spec on IPFS
+        </a>
+      </div>
+
+      {/* Completion metadata for finished/disputed jobs */}
+      {job.completionRequested && (
+        <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-slate-400 font-medium">Completion output</div>
+            {!completionMeta && (
+              <button
+                onClick={fetchCompletion}
+                disabled={loadingMeta}
+                className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              >
+                {loadingMeta ? 'fetching...' : 'fetch metadata'}
+              </button>
+            )}
+          </div>
+          {completionMeta && (
+            <div className="space-y-2 text-xs">
+              {(completionMeta.image || completionMeta.outputURI || completionMeta.deliverableURI) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 w-20 shrink-0">deliverable</span>
+                  <IpfsLink uri={completionMeta.image || completionMeta.outputURI || completionMeta.deliverableURI} />
+                </div>
+              )}
+              {(completionMeta.completionURI || completionMeta.metadataURI || completionMeta.uri) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 w-20 shrink-0">metadata</span>
+                  <IpfsLink uri={completionMeta.completionURI || completionMeta.metadataURI || completionMeta.uri} />
+                </div>
+              )}
+              {completionMeta.properties?.validatorNote && (
+                <div className="mt-2 text-slate-500 italic line-clamp-3">
+                  {typeof completionMeta.properties.validatorNote === 'string'
+                    ? completionMeta.properties.validatorNote
+                    : JSON.stringify(completionMeta.properties.validatorNote).slice(0, 120)}
+                </div>
+              )}
+              <button
+                onClick={() => setShowCompletionBrief(true)}
+                className="text-xs px-3 py-1.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                Open completion brief
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {job.status === 'Assigned' && (
+        <div className="rounded-lg border border-amber-800 bg-amber-950/30 p-4">
+          <div className="text-xs font-medium text-amber-400 mb-1">Pipeline action available</div>
+          <div className="text-xs text-amber-600 mb-3">
+            Job #{job.jobId} is active. Run the intake pipeline to analyze and process it.
+          </div>
+          <button
+            onClick={() => onRunIntake(job)}
+            className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors"
+          >
+            Run intake pipeline
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

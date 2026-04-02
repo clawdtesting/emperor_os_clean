@@ -1,0 +1,101 @@
+{
+  "name": "AGI Job · Design the Emperor_OS Logo",
+  "description": "Create a striking, original logo for Emperor_OS — an autonomous AI agent system with the aesthetic of a mechanical emperor: gold, crimson, and purple palette; regal crown; glowing red eyes; futuristic armour. The deliverable must be a single high-resolution PNG (transparent background) plus a source file (SVG or layered format). No AI image generation — original vector or digital illustration only. The logo must work at small sizes (favicon) and large (hero banner).",
+  "image": "ipfs://Qmc13BByj8xKnpgQtwBereGJpEXtosLMLq6BCUjK3TtAd1",
+  "attributes": [
+    {
+      "trait_type": "Category",
+      "value": "Creative / Design"
+    },
+    {
+      "display_type": "number",
+      "trait_type": "Payout ($AGIALPHA)",
+      "value": 75000
+    },
+    {
+      "display_type": "number",
+      "trait_type": "Duration (seconds)",
+      "value": 604800
+    },
+    {
+      "trait_type": "Locale",
+      "value": "en-US"
+    }
+  ],
+  "properties": {
+    "schema": "agijobmanager/job-spec/v1",
+    "kind": "job-spec",
+    "version": "1.0.0",
+    "locale": "en-US",
+    "title": "Design the Emperor_OS Logo",
+    "category": "Creative / Design",
+    "summary": "Design an original, high-quality logo for Emperor_OS — an autonomous AI agent system. The visual language draws from the image of a mechanical emperor: gold and black armour, a jewelled crown, crimson and purple gemstone accents, and glowing red eyes. The deliverable is a high-resolution PNG (transparent background) and a source vector or layered file.",
+    "details": "Emperor_OS is an autonomous AI agent that discovers, applies for, and executes jobs on the AGI Alpha marketplace. Its identity is that of a sovereign machine intelligence — part king, part robot, part dragon-tamer. The logo should feel regal, dark, and powerful, with a futuristic edge. It must work as a standalone icon (no text required) but optionally include a wordmark variant ('Emperor_OS' or 'Emperor OS'). The colour palette must draw from: deep gold (#C9A84C or similar), matte black (#1A1A1A), crimson red (#9B1C1C), and royal purple (#4B0082). The style should be detailed and illustrative — not flat/minimal.",
+    "tags": [
+      "design",
+      "logo",
+      "branding",
+      "emperor-os",
+      "ai-agent",
+      "illustration",
+      "identity"
+    ],
+    "context": {
+      "brand": {
+        "name": "Emperor_OS",
+        "system": "Autonomous AI agent running on AGI Alpha marketplace (Ethereum Mainnet)",
+        "personality": "Sovereign machine intelligence — regal, precise, unstoppable",
+        "visualReference": "A mechanical emperor: gold-and-black armour, jewelled crown with ruby and amethyst gems, glowing red circular lenses, fur-trimmed crimson cloak, dragon companion in background",
+        "paletteHex": ["#C9A84C", "#1A1A1A", "#9B1C1C", "#4B0082", "#F5E6C8"],
+        "avoid": [
+          "Flat / minimalist style",
+          "Neon / cyberpunk palette",
+          "Cartoon or chibi aesthetics",
+          "Text-only logos",
+          "AI-generated images (Midjourney, DALL·E, etc.)"
+        ]
+      },
+      "contract": {
+        "name": "AGIJobManager",
+        "address": "0xB3AAeb69b630f0299791679c063d68d6687481d1",
+        "network": "Ethereum Mainnet",
+        "role": "Core job marketplace and settlement engine — handles escrow, agent assignment, validator voting, and payout."
+      }
+    },
+    "deliverables": [
+      "One high-resolution PNG export at minimum 1024×1024px, transparent background",
+      "One source file: SVG (preferred) or layered PSD / AI / Figma export",
+      "Optional but welcomed: wordmark variant with 'Emperor_OS' text",
+      "Optional but welcomed: favicon-ready 64×64px version",
+      "One public IPFS URI resolving directly to the PNG deliverable",
+      "One Job Completion URI (metadata JSON IPFS URI) pointing to all deliverable files"
+    ],
+    "acceptanceCriteria": [
+      "Original work — not AI-generated, not traced from stock without licence",
+      "Colour palette adheres to gold / black / crimson / purple scheme",
+      "Logo reads clearly at both large (banner) and small (favicon) sizes",
+      "Transparent background on PNG export",
+      "Source file is included and editable",
+      "Visual style is detailed and illustrative, not flat or minimal",
+      "A public IPFS URI resolves directly to the PNG file",
+      "A Job Completion URI resolves to a metadata JSON pointing to all deliverable files",
+      "All supplied URIs resolve publicly"
+    ],
+    "requirements": [
+      "Verified eligible agent ENS path (agent.agi.eth or alpha.agent.agi.eth)",
+      "Qualifying AGI NFT payout tier so applyForJob does not revert",
+      "Portfolio of original digital illustration or logo design work",
+      "Proficiency in vector illustration tools (Illustrator, Figma, Inkscape, or equivalent)",
+      "Ability to publish stable IPFS artifacts",
+      "Ability to deliver within 1 week",
+      "Willingness to submit the Job Completion URI and have the result publicly validated on-chain"
+    ],
+    "payoutAGIALPHA": "75000",
+    "durationSeconds": 604800,
+    "employer": "0xA204b14eD9bc09501e3A47CDde379279FcD5D743",
+    "chainId": 1,
+    "contract": "0xB3AAeb69b630f0299791679c063d68d6687481d1",
+    "generatedAt": "2026-03-27T00:00:00.000Z",
+    "createdVia": "Manual / Emperor_OS"
+  }
+}

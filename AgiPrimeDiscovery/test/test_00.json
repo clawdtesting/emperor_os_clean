@@ -1,0 +1,96 @@
+{
+  "name": "AGI Job · Explain Smart Contract 1 & 2 for a Newbie (High-Level)",
+  "description": "Write a clear, accessible, high-level explanation of two AGIJobManager ecosystem smart contracts for a complete newcomer to Web3 and smart contracts. Contract 1 is AGIJobManager (0xB3AAeb69b630f0299791679c063d68d6687481d1) — the core job marketplace and settlement engine. Contract 2 is AGIJobDiscoveryPrime (0xd5EF1dde7Ac60488f697ff2A7967a52172A78F29) — the premium hiring/discovery layer that sits on top. The deliverable must be a single Markdown file that explains both contracts in plain language, with analogies and a clear diagram or structured walkthrough of how they interact. No Solidity code blocks or deep technical jargon. Suitable for someone who has never read a smart contract before.",
+  "image": "ipfs://Qmc13BByj8xKnpgQtwBereGJpEXtosLMLq6BCUjK3TtAd1",
+  "attributes": [
+    { "trait_type": "Kind", "value": "job-listing" },
+    { "trait_type": "Category", "value": "Education / Documentation / Onboarding" },
+    { "trait_type": "Locale", "value": "en-US" },
+    { "display_type": "number", "trait_type": "Payout ($AGIALPHA)", "value": 250000 },
+    { "display_type": "number", "trait_type": "Validator Bond (bps)", "value": 1500 },
+    { "display_type": "number", "trait_type": "Agent Bond (bps)", "value": 2500 },
+    { "display_type": "number", "trait_type": "Validators Required", "value": 5 },
+    { "display_type": "number", "trait_type": "Vote Quorum", "value": 7 },
+    { "display_type": "number", "trait_type": "Duration (seconds)", "value": 604800 }
+  ],
+  "properties": {
+    "schema": "agijobmanager/job-spec/v2",
+    "kind": "job-spec",
+    "version": "1.0.0",
+    "locale": "en-US",
+    "title": "Explain Smart Contract 1 & 2 for a Newbie (High-Level)",
+    "category": "Education / Documentation / Onboarding",
+    "summary": "Plain-language explanation of AGIJobManager and AGIJobDiscoveryPrime for a Web3 newcomer",
+    "details": "Write a clear, accessible, high-level explanation of two AGIJobManager ecosystem smart contracts for a complete newcomer to Web3 and smart contracts. Contract 1 is AGIJobManager (0xB3AAeb69b630f0299791679c063d68d6687481d1) — the core job marketplace and settlement engine. Contract 2 is AGIJobDiscoveryPrime (0xd5EF1dde7Ac60488f697ff2A7967a52172A78F29) — the premium hiring/discovery layer that sits on top. The final deliverable must be a single Markdown file covering both contracts in plain English, with analogies, no Solidity, and a structured walkthrough of how they interact.",
+    "tags": [
+      "education",
+      "documentation",
+      "onboarding",
+      "web3",
+      "smart-contracts",
+      "agijobmanager",
+      "agijobdiscoveryprime"
+    ],
+    "context": {
+      "contract1": {
+        "name": "AGIJobManager",
+        "address": "0xB3AAeb69b630f0299791679c063d68d6687481d1",
+        "network": "Ethereum Mainnet",
+        "role": "Core job marketplace and settlement engine — handles job creation, escrow, agent assignment, validator voting, dispute resolution, and payout."
+      },
+      "contract2": {
+        "name": "AGIJobDiscoveryPrime",
+        "address": "0xd5EF1dde7Ac60488f697ff2A7967a52172A78F29",
+        "network": "Ethereum Mainnet",
+        "role": "Premium hiring/discovery layer — commit-reveal applications, shortlisting, trial submissions, blind validator scoring, and winner designation on top of AGIJobManager."
+      }
+    },
+    "deliverables": [
+      "Single Markdown file explaining both contracts in plain language",
+      "Analogies that make sense to a Web3 newcomer",
+      "Structured walkthrough of how the two contracts interact",
+      "One public IPFS URI resolving directly to the Markdown file",
+      "One Job Completion URI (metadata JSON IPFS URI) pointing to the Markdown file"
+    ],
+    "acceptanceCriteria": [
+      "No Solidity code blocks or deep technical jargon",
+      "Suitable for someone who has never read a smart contract before",
+      "Covers both AGIJobManager and AGIJobDiscoveryPrime",
+      "Includes a clear diagram or structured walkthrough of contract interaction",
+      "Written in plain English with accessible analogies",
+      "A public IPFS URI resolves directly to the Markdown file",
+      "A Job Completion URI resolves to a metadata JSON pointing to the Markdown file",
+      "All supplied URIs resolve publicly"
+    ],
+    "requirements": [
+      "Verified eligible agent ENS path (agent.agi.eth or alpha.agent.agi.eth)",
+      "Qualifying AGI NFT payout tier so applyForJob does not revert",
+      "Excellent plain-English technical writing ability",
+      "Ability to publish stable IPFS artifacts",
+      "Ability to deliver within 1 week"
+    ],
+    "protocolParams": {
+      "_source": "AGI Alpha on-chain protocol — AGIJobManager 0xB3AAeb69b630f0299791679c063d68d6687481d1",
+      "validatorBondBps": 1500,
+      "validatorBondPct": "15%",
+      "validatorBondMin_AGIALPHA": 100,
+      "agentBondBps": 2500,
+      "agentBondPct": "25%",
+      "requiredApprovals": 5,
+      "requiredDisapprovals": 5,
+      "voteQuorum": 7,
+      "validationRewardPct": "8%",
+      "completionReviewPeriod": "7 days",
+      "disputeReviewPeriod": "14 days",
+      "challengePeriod": "1 day",
+      "agentPayoutPct": "60%"
+    },
+    "payoutAGIALPHA": 250000,
+    "durationSeconds": 604800,
+    "employer": "0xA204b14eD9bc09501e3A47CDde379279FcD5D743",
+    "chainId": 1,
+    "contract": "0xB3AAeb69b630f0299791679c063d68d6687481d1",
+    "generatedAt": "2026-03-28T00:00:00.000Z",
+    "createdVia": "Manual / Emperor_OS"
+  }
+}

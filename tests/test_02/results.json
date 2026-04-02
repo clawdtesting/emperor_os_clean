@@ -1,0 +1,11 @@
+{
+  "test": "test_02",
+  "timestamp": "2026-03-28T00:26:20.864Z",
+  "jobSpecURI": "ipfs://QmTdZkTVedm1mGdTwjcXAFXi5GgzSar7H1QkdDpzvrcNRj",
+  "jobSpecGateway": "https://ipfs.io/ipfs/QmTdZkTVedm1mGdTwjcXAFXi5GgzSar7H1QkdDpzvrcNRj",
+  "deliverableURI": "ipfs://QmX3UyUQgKg1afDvdsbomjpHz77v4hZwHwMbnUfSErHeqw",
+  "deliverableGateway": "https://ipfs.io/ipfs/QmX3UyUQgKg1afDvdsbomjpHz77v4hZwHwMbnUfSErHeqw",
+  "completionURI": "ipfs://QmTBMUxBru5dgJKAdu8o8UHXhe54AmK7DAsPsKhenTNs2m",
+  "completionGateway": "https://ipfs.io/ipfs/QmTBMUxBru5dgJKAdu8o8UHXhe54AmK7DAsPsKhenTNs2m",
+  "nextStep": "request_job_completion(jobId, \"ipfs://QmTBMUxBru5dgJKAdu8o8UHXhe54AmK7DAsPsKhenTNs2m\")"
+}
