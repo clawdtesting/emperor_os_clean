@@ -26,8 +26,6 @@ function compareJobIdDesc(a, b) {
 }
 
 function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
-  const versions = ['v1', 'v2', 'v3', 'v4']
-
   return (
     <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -42,13 +40,13 @@ function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
         <span className="text-xs text-slate-500 font-mono hidden md:block">{countdown}s</span>
 
         <div className="flex items-center gap-1 rounded-lg border border-slate-700 p-1 bg-slate-900">
-          {versions.map(v => (
+          {APP_VERSIONS.map(version => (
             <button
               key={v}
               onClick={() => onSelectVersion(v)}
               className={`text-xs px-2 py-1 rounded ${activeVersion === v ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
             >
-              {v}
+              {version}
             </button>
           ))}
         </div>
@@ -117,19 +115,17 @@ function ClassicView({ jobsDesc, loading, error, selected, setSelected, tab, set
           {loading && <div>Loading...</div>}
           {error && <div className="text-red-400">{error}</div>}
           <div className="space-y-2">
-            {jobsDesc.map(j => (
+            {jobsDesc.map(job => (
               <JobCard
-                key={j.jobId}
-                job={j}
-                selected={selected?.jobId === j.jobId}
-                onClick={() => {
-                  setSelected(j)
-                  setTab('detail')
-                }}
+                key={job.jobId}
+                job={job}
+                selected={selected?.jobId === job.jobId}
+                onClick={() => setSelected(job)}
               />
             ))}
           </div>
-        </>
+          <JobDetail job={selected} onRunIntake={() => {}} />
+        </div>
       )}
 
       {tab === 'detail' && <JobDetail job={selected} onRunIntake={() => {}} />}
@@ -331,9 +327,7 @@ function CockpitView({
   )
 }
 
-export default function App() {
-  const { jobs, loading, error, countdown, events, refetch } = useJobs()
-  const wallet = useWallet()
+      <TabStrip tab={tab} setTab={setTab} />
 
   const safeJobs = Array.isArray(jobs) ? jobs : []
   const safeEvents = Array.isArray(events) ? events : []
@@ -363,15 +357,22 @@ export default function App() {
     wallet,
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <Header
-        countdown={countdown}
-        error={error}
-        refetch={refetch}
-        activeVersion={activeVersion}
-        onSelectVersion={setActiveVersion}
-      />
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col overflow-hidden">
+        <div className="border-b border-slate-800 p-3 space-y-3">
+          <div className="text-sm font-semibold">Inspector</div>
+          <TabStrip tab={tab} setTab={setTab} />
+        </div>
+        <div className="overflow-auto p-3">
+          {tab === 'jobs' ? (
+            <JobDetail job={selected} onRunIntake={() => {}} />
+          ) : (
+            <SharedTabPanels tab={tab} selected={selected} setSelected={setSelected} {...rest} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
       {activeVersion === 'v1' && <ClassicView {...viewProps} />}
       {activeVersion === 'v2' && <OperationsDeckView {...viewProps} />}
