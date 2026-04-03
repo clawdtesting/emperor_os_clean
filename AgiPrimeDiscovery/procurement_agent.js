@@ -26,6 +26,8 @@ const STATE_FILE = join(DATA_DIR, 'procurement_state.json')
 const CONTRACT2 = '0xd5EF1dde7Ac60488f697ff2A7967a52172A78F29'
 const CONTRACT1 = '0xB3AAeb69b630f0299791679c063d68d6687481d1'
 const MODEL     = 'claude-sonnet-4-20250514'
+const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 120_000)
+const CLAUDE_LONG_TIMEOUT_MS = Number(process.env.CLAUDE_LONG_TIMEOUT_MS || 240_000)
 const POLL_MS   = 60_000
 const LOG_RANGE = 2000   // max blocks to scan per poll for new events
 
@@ -124,7 +126,7 @@ async function pinWithRetry(content, filename) {
 
 // ── Claude ────────────────────────────────────────────────────────────────────
 
-async function claudeChat(system, user, maxTokens = 4096) {
+async function claudeChat(system, user, maxTokens = 4096, timeoutMs = CLAUDE_TIMEOUT_MS) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method:  'POST',
     headers: {
@@ -138,7 +140,7 @@ async function claudeChat(system, user, maxTokens = 4096) {
       system,
       messages: [{ role: 'user', content: user }],
     }),
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`)
   const data = await res.json()
@@ -167,7 +169,24 @@ async function draftTrial(specContent, agentAddress) {
   const system = `You are Emperor_OS, an autonomous AI agent delivering paid work on the AGIJobManager marketplace. Produce the actual deliverable described in the job spec — not an application, but the real work product.`
   const user   = `Job spec:\n\n${specContent}\n\nAgent address: ${agentAddress}\n\nProduce the complete deliverable described in the job spec. Follow every acceptance criterion. Output clean Markdown.`
 
-  return await claudeChat(system, user, 8192)
+  return await claudeChat(system, user, 8192, CLAUDE_LONG_TIMEOUT_MS)
+}
+
+async function draftTrialWithRetry(specContent, agentAddress, retries = 2) {
+  let lastError
+  for (let i = 0; i <= retries; i++) {
+    try {
+      if (i > 0) log(`Retrying draftTrial (${i}/${retries})...`)
+      return await draftTrial(specContent, agentAddress)
+    } catch (e) {
+      lastError = e
+      if (i === retries) break
+      const timedOut = e?.name === 'TimeoutError' || /aborted due to timeout/i.test(String(e?.message))
+      if (!timedOut) break
+      await sleep(3000)
+    }
+  }
+  throw lastError
 }
 
 // ── MCP (job spec fetch) ──────────────────────────────────────────────────────
@@ -420,7 +439,7 @@ async function checkPendingTrials(state) {
         specContent = await fetchJobSpec(t.jobId).catch(() => '') || ''
       }
 
-      const trialMarkdown = await draftTrial(specContent, wallet().address)
+      const trialMarkdown = await draftTrialWithRetry(specContent, wallet().address)
       const trialURI      = await pinWithRetry(trialMarkdown, `trial-${t.procurementId}.md`)
       log(`#${t.procurementId} trial pinned: ${trialURI}`)
 
