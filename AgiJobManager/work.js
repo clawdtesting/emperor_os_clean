@@ -24,7 +24,7 @@ export async function claude(system, user, { maxTokens = 8192, temperature = 0 }
       system,
       messages: [{ role: 'user', content: user }]
     }),
-    signal: AbortSignal.timeout(120_000)
+    signal: AbortSignal.timeout(300_000)
   })
 
   if (!res.ok) {
