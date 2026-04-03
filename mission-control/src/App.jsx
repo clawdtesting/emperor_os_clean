@@ -24,7 +24,7 @@ function compareJobIdDesc(a, b) {
 }
 
 function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
-  const versions = ['v1', 'v2', 'v3', 'v4', 'v5']
+  const versions = ['v1', 'v2', 'v3', 'v4']
 
   return (
     <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
@@ -297,25 +297,6 @@ function BoardMissionControl(props) {
   )
 }
 
-function VisualFocusMissionControl(props) {
-  const { jobsDesc, assigned, completed, disputed, selected, handleSelectJob } = props
-
-  return (
-    <div className="px-4 py-4 mt-8 md:mt-0 space-y-3">
-      <VisualsTab jobsDesc={jobsDesc} assigned={assigned} completed={completed} disputed={disputed} />
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
-        <h3 className="text-sm font-semibold mb-2">Priority Queue</h3>
-        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-3">
-          <div className="space-y-2 max-h-[52vh] overflow-y-auto">
-            {jobsDesc.map(j => <JobCard key={j.jobId} job={j} selected={selected?.jobId === j.jobId} onClick={() => handleSelectJob(j)} />)}
-          </div>
-          <JobDetail job={selected} onRunIntake={() => {}} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function App() {
   const { jobs, loading, error, countdown, events, refetch } = useJobs()
   const [selected, setSelected] = useState(null)
@@ -355,7 +336,6 @@ export default function App() {
     v2: <CompactMissionControl {...viewProps} />,
     v3: <ProMissionControl {...viewProps} />,
     v4: <BoardMissionControl {...viewProps} />,
-    v5: <VisualFocusMissionControl {...viewProps} />,
   }
 
   return (
