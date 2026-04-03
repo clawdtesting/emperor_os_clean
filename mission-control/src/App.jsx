@@ -26,8 +26,6 @@ function compareJobIdDesc(a, b) {
 }
 
 function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
-  const versions = ['v1', 'v2', 'v3', 'v4']
-
   return (
     <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -44,17 +42,17 @@ function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
         <span className="text-xs text-slate-500 font-mono hidden md:block">{countdown}s</span>
 
         <div className="flex items-center gap-1 rounded-lg border border-slate-700 p-1 bg-slate-900">
-          {versions.map(v => (
+          {APP_VERSIONS.map(version => (
             <button
-              key={v}
-              onClick={() => onSelectVersion(v)}
+              key={version}
+              onClick={() => onSelectVersion(version)}
               className={`text-xs px-2 py-1 rounded ${
-                activeVersion === v
+                activeVersion === version
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              {v}
+              {version}
             </button>
           ))}
         </div>
@@ -124,26 +122,44 @@ function TabStrip({ tab, setTab }) {
 
 function ClassicView({ jobsDesc, loading, error, selected, setSelected, tab, setTab }) {
   return (
-    <div className="p-4">
-      {tab === 'jobs' && (
-        <>
-          {loading && <div>Loading...</div>}
-          {error && <div className="text-red-400">{error}</div>}
+    <div className="p-4 space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <MetricCard label="Total" value={jobsDesc.length} />
+        <MetricCard label="Assigned" value={assigned.length} />
+        <MetricCard label="Done" value={completed.length} />
+        <MetricCard label="Disputed" value={disputed.length} />
+      </div>
 
+      <div className="flex flex-wrap gap-2">
+        {TAB_OPTIONS.map(tabName => (
+          <button
+            key={tabName}
+            onClick={() => setTab(tabName)}
+            className={`px-3 py-1.5 rounded text-xs border ${
+              tab === tabName
+                ? 'bg-blue-600 text-white border-blue-500'
+                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            {tabName}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'jobs' && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="space-y-2">
-            {jobsDesc.map(j => (
+            {jobsDesc.map(job => (
               <JobCard
-                key={j.jobId}
-                job={j}
-                selected={selected?.jobId === j.jobId}
-                onClick={() => {
-                  setSelected(j)
-                  setTab('detail')
-                }}
+                key={job.jobId}
+                job={job}
+                selected={selected?.jobId === job.jobId}
+                onClick={() => setSelected(job)}
               />
             ))}
           </div>
-        </>
+          <JobDetail job={selected} onRunIntake={() => {}} />
+        </div>
       )}
 
       {tab === 'detail' && <JobDetail job={selected} onRunIntake={() => {}} />}
@@ -366,9 +382,18 @@ export default function App() {
   const safeJobs = Array.isArray(jobs) ? jobs : []
   const safeEvents = Array.isArray(events) ? events : []
 
-  const [selected, setSelected] = useState(null)
-  const [tab, setTab] = useState('jobs')
-  const [activeVersion, setActiveVersion] = useState('v2')
+      {tab === 'jobs' && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="space-y-2 max-h-[68vh] overflow-auto pr-1">
+            {jobsDesc.map(j => (
+              <JobCard
+                key={j.jobId}
+                job={j}
+                selected={selected?.jobId === j.jobId}
+                onClick={() => setSelected(j)}
+              />
+            ))}
+          </div>
 
   const assigned = useMemo(() => safeJobs.filter(j => j.status === 'Assigned'), [safeJobs])
   const completed = useMemo(() => safeJobs.filter(j => j.status === 'Completed'), [safeJobs])
@@ -391,15 +416,22 @@ export default function App() {
     wallet,
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <Header
-        countdown={countdown}
-        error={error}
-        refetch={refetch}
-        activeVersion={activeVersion}
-        onSelectVersion={setActiveVersion}
-      />
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col overflow-hidden">
+        <div className="border-b border-slate-800 p-3 space-y-3">
+          <div className="text-sm font-semibold">Inspector</div>
+          <TabStrip tab={tab} setTab={setTab} />
+        </div>
+        <div className="overflow-auto p-3">
+          {tab === 'jobs' ? (
+            <JobDetail job={selected} onRunIntake={() => {}} />
+          ) : (
+            <SharedTabPanels tab={tab} selected={selected} setSelected={setSelected} {...rest} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
       {activeVersion === 'v1' && <ClassicView {...viewProps} />}
       {activeVersion === 'v2' && <OperationsDeckView {...viewProps} />}
