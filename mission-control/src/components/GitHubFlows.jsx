@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
-const REPO      = 'https://github.com/clawdtesting/emperor_OS'
-const GH_API    = 'https://api.github.com/repos/clawdtesting/emperor_OS/actions/workflows'
+const REPO      = 'https://github.com/clawdtesting/emperor_os_clean'
+const GH_API    = 'https://api.github.com/repos/clawdtesting/emperor_os_clean/actions/workflows'
 const RENDER_URL = 'https://emperor-os.onrender.com'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

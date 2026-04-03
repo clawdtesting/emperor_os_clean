@@ -10,6 +10,7 @@ export function useJobs() {
   const [countdown, setCountdown] = useState(30)
   const [events, setEvents] = useState([])
   const seenIds = useRef(new Set())
+  const isFirstFetch = useRef(true)
 
   const addEvent = useCallback((type, msg) => {
     const d = new Date()
@@ -22,6 +23,13 @@ export function useJobs() {
     try {
       const data = await fetchJobs()
       setJobs(prev => {
+        if (isFirstFetch.current) {
+          // Silently register all existing jobs on first load — don't spam "new"
+          isFirstFetch.current = false
+          data.forEach(j => seenIds.current.add(j.jobId))
+          addEvent('fetch', `Fetched ${data.length} job(s)`)
+          return data
+        }
         const newJobs = data.filter(j => !seenIds.current.has(j.jobId))
         newJobs.forEach(j => {
           seenIds.current.add(j.jobId)

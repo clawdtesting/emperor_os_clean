@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { resolveEns } from '../utils/ens'
 
 const CHAIN_LABELS = {
   '0x1': 'Ethereum Mainnet',
@@ -32,6 +33,7 @@ function hexToAddress(hex) {
 
 export function useWallet() {
   const [account, setAccount] = useState(null)
+  const [ensName, setEnsName] = useState(null)
   const [chainId, setChainId] = useState(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
@@ -91,6 +93,7 @@ export function useWallet() {
       const active = accounts?.[0] || null
       setAccount(active)
       setChainId(chain || null)
+      resolveEns(active).then(setEnsName)
       await refreshBalances(active)
     } catch (e) {
       setError(e.message || 'Unable to read wallet state')
@@ -113,6 +116,7 @@ export function useWallet() {
       const active = accounts?.[0] || null
       setAccount(active)
       setChainId(chain || null)
+      resolveEns(active).then(setEnsName)
       await refreshBalances(active)
       setStatus('connected')
     } catch (e) {
@@ -142,6 +146,7 @@ export function useWallet() {
   return {
     providerAvailable,
     account,
+    ensName,
     chainId,
     chainIdDecimal: chainId ? Number.parseInt(chainId, 16) : null,
     chainLabel: CHAIN_LABELS[chainId] || 'Unknown chain',
