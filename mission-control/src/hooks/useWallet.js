@@ -40,6 +40,9 @@ export function useWallet() {
   const [ethBalance, setEthBalance] = useState(null)
   const [agiBalance, setAgiBalance] = useState(null)
   const [agiToken, setAgiToken] = useState(null)
+  const [agentReputation, setAgentReputation] = useState(null)
+  const [reputationSource, setReputationSource] = useState(null)
+  const [reputationContract, setReputationContract] = useState(null)
 
   const providerAvailable = useMemo(() => Boolean(getProvider()), [])
 
@@ -81,6 +84,29 @@ export function useWallet() {
     }
   }, [agiToken])
 
+  const refreshReputation = useCallback(async activeAccount => {
+    if (!activeAccount) {
+      setAgentReputation(null)
+      setReputationSource(null)
+      setReputationContract(null)
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/agent-reputation/${activeAccount}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setAgentReputation(data?.reputation ?? null)
+      setReputationSource(data?.source || null)
+      setReputationContract(data?.contract || null)
+    } catch (e) {
+      setAgentReputation(null)
+      setReputationSource(null)
+      setReputationContract(null)
+      setError(e.message || 'Unable to read agent reputation')
+    }
+  }, [])
+
   const refresh = useCallback(async () => {
     const provider = getProvider()
     if (!provider) return
@@ -95,11 +121,11 @@ export function useWallet() {
       setChainId(chain || null)
       setEnsName(null)
       resolveEns(active).then(setEnsName)
-      await refreshBalances(active)
+      await Promise.all([refreshBalances(active), refreshReputation(active)])
     } catch (e) {
       setError(e.message || 'Unable to read wallet state')
     }
-  }, [refreshBalances])
+  }, [refreshBalances, refreshReputation])
 
   const connect = useCallback(async () => {
     const provider = getProvider()
@@ -119,13 +145,13 @@ export function useWallet() {
       setChainId(chain || null)
       setEnsName(null)
       resolveEns(active).then(setEnsName)
-      await refreshBalances(active)
+      await Promise.all([refreshBalances(active), refreshReputation(active)])
       setStatus('connected')
     } catch (e) {
       setStatus('idle')
       setError(e.message || 'Wallet connection rejected')
     }
-  }, [refreshBalances])
+  }, [refreshBalances, refreshReputation])
 
   useEffect(() => {
     const provider = getProvider()
@@ -158,6 +184,9 @@ export function useWallet() {
     ethBalance,
     agiBalance,
     agiToken,
+    agentReputation,
+    reputationSource,
+    reputationContract,
     connect,
     refresh,
   }
