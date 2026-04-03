@@ -14,9 +14,7 @@ import { PrimeContractTab } from './components/PrimeContractTab'
 
 import empireVisual from './assets/hero.png'
 
-/* =========================
-   Utils
-========================= */
+/* ========================= Utils ========================= */
 
 function compareJobIdDesc(a, b) {
   try {
@@ -29,9 +27,7 @@ function compareJobIdDesc(a, b) {
   }
 }
 
-/* =========================
-   Header
-========================= */
+/* ========================= Header ========================= */
 
 function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
   const versions = ['v1', 'v2', 'v3', 'v4']
@@ -39,7 +35,9 @@ function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
   return (
     <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">⬡</div>
+        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+          ⬡
+        </div>
         <div>
           <div className="text-sm font-semibold">AGI Alpha Mission Control</div>
           <div className="text-xs text-slate-500">
@@ -91,9 +89,7 @@ function Header({ countdown, error, refetch, activeVersion, onSelectVersion }) {
   )
 }
 
-/* =========================
-   Shared Panels
-========================= */
+/* ====================== Shared Panels ===================== */
 
 function SharedTabPanels({
   tab,
@@ -110,10 +106,12 @@ function SharedTabPanels({
   if (tab === 'prime') return <PrimeContractTab wallet={wallet} jobs={jobs} />
   if (tab === 'workflows') return <GitHubFlows />
   if (tab === 'events') return <EventLog events={events} />
+  if (tab === 'test') return <TestTab />
+
   if (tab === 'visuals') {
     return (
       <div className="p-4 space-y-4">
-        <img src={empireVisual} className="rounded-lg" />
+        <img src={empireVisual} alt="Empire visual" className="rounded-lg" />
         <div className="text-xs space-y-1">
           <div>Total: {jobsDesc.length}</div>
           <div>Assigned: {assigned.length}</div>
@@ -123,12 +121,11 @@ function SharedTabPanels({
       </div>
     )
   }
+
   return null
 }
 
-/* =========================
-   Views
-========================= */
+/* ========================== Views ========================= */
 
 function ClassicView(props) {
   const {
@@ -148,17 +145,19 @@ function ClassicView(props) {
           {loading && <div>Loading...</div>}
           {error && <div className="text-red-400">{error}</div>}
 
-          {jobsDesc.map(j => (
-            <JobCard
-              key={j.jobId}
-              job={j}
-              selected={selected?.jobId === j.jobId}
-              onClick={() => {
-                setSelected(j)
-                setTab('detail')
-              }}
-            />
-          ))}
+          <div className="space-y-2">
+            {jobsDesc.map(j => (
+              <JobCard
+                key={j.jobId}
+                job={j}
+                selected={selected?.jobId === j.jobId}
+                onClick={() => {
+                  setSelected(j)
+                  setTab('detail')
+                }}
+              />
+            ))}
+          </div>
         </>
       )}
 
@@ -169,9 +168,7 @@ function ClassicView(props) {
   )
 }
 
-/* =========================
-   Main App
-========================= */
+/* ========================= Main App ======================= */
 
 export default function App() {
   const { jobs, loading, error, countdown, events, refetch } = useJobs()
@@ -185,19 +182,18 @@ export default function App() {
     () => jobs.filter(j => j.status === 'Assigned'),
     [jobs]
   )
+
   const completed = useMemo(
     () => jobs.filter(j => j.status === 'Completed'),
     [jobs]
   )
+
   const disputed = useMemo(
     () => jobs.filter(j => j.status === 'Disputed'),
     [jobs]
   )
 
-  const jobsDesc = useMemo(
-    () => [...jobs].sort(compareJobIdDesc),
-    [jobs]
-  )
+  const jobsDesc = useMemo(() => [...jobs].sort(compareJobIdDesc), [jobs])
 
   const viewProps = {
     jobs,
@@ -225,7 +221,6 @@ export default function App() {
         onSelectVersion={setActiveVersion}
       />
 
-      {/* Views */}
       {activeVersion === 'v1' && <ClassicView {...viewProps} />}
 
       {activeVersion !== 'v1' && (
@@ -237,8 +232,24 @@ export default function App() {
             <MetricCard label="Disputed" value={disputed.length} />
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            {['jobs', 'request', 'wallet', 'prime', 'workflows', 'events', 'visuals', 'test'].map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-1.5 rounded text-xs border ${
+                  tab === t
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
           {tab === 'jobs' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="space-y-2">
                 {jobsDesc.map(j => (
                   <JobCard
@@ -250,11 +261,13 @@ export default function App() {
                 ))}
               </div>
 
-              <JobDetail job={selected} onRunIntake={() => {}} />
+              <div>
+                <JobDetail job={selected} onRunIntake={() => {}} />
+              </div>
             </div>
           )}
 
-          <SharedTabPanels {...viewProps} />
+          {tab !== 'jobs' && <SharedTabPanels {...viewProps} />}
         </div>
       )}
     </div>
