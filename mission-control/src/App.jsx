@@ -271,7 +271,18 @@ function BoardView({ jobsDesc, selected, setSelected, tab, setTab, ...rest }) {
   )
 }
 
-function CockpitView({ jobsDesc, assigned, completed, disputed, events, selected, setSelected, tab, setTab, ...rest }) {
+function CockpitView({
+  jobsDesc = [],
+  assigned = [],
+  completed = [],
+  disputed = [],
+  events = [],
+  selected,
+  setSelected,
+  tab,
+  setTab,
+  ...rest
+}) {
   const lead = selected ?? jobsDesc[0] ?? null
   const leftTabs = ['jobs', 'request', 'wallet', 'prime', 'workflows', 'events', 'visuals', 'test']
 
@@ -368,25 +379,59 @@ function CockpitView({ jobsDesc, assigned, completed, disputed, events, selected
 export default function App() {
   const { jobs, loading, error, countdown, events, refetch } = useJobs()
   const wallet = useWallet()
+  const safeJobs = Array.isArray(jobs) ? jobs : []
+  const safeEvents = Array.isArray(events) ? events : []
 
-  const [selected, setSelected] = useState(null)
-  const [tab, setTab] = useState('jobs')
-  const [activeVersion, setActiveVersion] = useState('v2')
+      {tab === 'jobs' && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="space-y-2 max-h-[68vh] overflow-auto pr-1">
+            {jobsDesc.map(j => (
+              <JobCard
+                key={j.jobId}
+                job={j}
+                selected={selected?.jobId === j.jobId}
+                onClick={() => setSelected(j)}
+              />
+            ))}
+          </div>
 
-  const assigned = useMemo(() => jobs.filter(j => j.status === 'Assigned'), [jobs])
-  const completed = useMemo(() => jobs.filter(j => j.status === 'Completed'), [jobs])
-  const disputed = useMemo(() => jobs.filter(j => j.status === 'Disputed'), [jobs])
-  const jobsDesc = useMemo(() => [...jobs].sort(compareJobIdDesc), [jobs])
+  const assigned = useMemo(() => safeJobs.filter(j => j.status === 'Assigned'), [safeJobs])
+  const completed = useMemo(() => safeJobs.filter(j => j.status === 'Completed'), [safeJobs])
+  const disputed = useMemo(() => safeJobs.filter(j => j.status === 'Disputed'), [safeJobs])
+  const jobsDesc = useMemo(() => [...safeJobs].sort(compareJobIdDesc), [safeJobs])
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <Header
-        countdown={countdown}
-        error={error}
-        refetch={refetch}
-        activeVersion={activeVersion}
-        onSelectVersion={setActiveVersion}
-      />
+  const viewProps = {
+    jobs: safeJobs,
+    jobsDesc,
+    assigned,
+    completed,
+    disputed,
+    loading,
+    error,
+    selected,
+    setSelected,
+    tab,
+    setTab,
+    events: safeEvents,
+    wallet,
+  }
+
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col overflow-hidden">
+        <div className="border-b border-slate-800 p-3 space-y-3">
+          <div className="text-sm font-semibold">Inspector</div>
+          <TabStrip tab={tab} setTab={setTab} />
+        </div>
+        <div className="overflow-auto p-3">
+          {tab === 'jobs' ? (
+            <JobDetail job={selected} onRunIntake={() => {}} />
+          ) : (
+            <SharedTabPanels tab={tab} selected={selected} setSelected={setSelected} {...rest} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
       {activeVersion === 'v1' && <ClassicView {...viewProps} />}
       {activeVersion === 'v2' && <OperationsDeckView {...viewProps} />}
