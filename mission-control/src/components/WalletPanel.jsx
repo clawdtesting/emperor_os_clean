@@ -1,6 +1,39 @@
+import { useEffect, useState } from 'react'
+import { resolveEns } from '../utils/ens'
+
 function short(addr) {
   if (!addr) return '—'
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+function EnsAddress({ address, className = 'text-blue-400' }) {
+  const [ensState, setEnsState] = useState({ address: null, name: null })
+
+  useEffect(() => {
+    let canceled = false
+    if (!address) return () => {
+      canceled = true
+    }
+
+    resolveEns(address).then(name => {
+      if (!canceled) setEnsState({ address, name: name || null })
+    })
+
+    return () => {
+      canceled = true
+    }
+  }, [address])
+
+  if (!address) return <span className="text-slate-500 font-mono">—</span>
+  const ens = ensState.address === address ? ensState.name : null
+
+  return (
+    <span className="font-mono" title={address}>
+      {ens
+        ? <><span className={className}>{ens}</span> <span className="text-slate-500 text-[11px]">{short(address)}</span></>
+        : <span className={className}>{short(address)}</span>}
+    </span>
+  )
 }
 
 export function WalletPanel({ wallet }) {
@@ -18,6 +51,9 @@ export function WalletPanel({ wallet }) {
     ethBalance,
     agiBalance,
     agiToken,
+    agentReputation,
+    reputationSource,
+    reputationContract,
   } = wallet
 
   return (
@@ -77,8 +113,23 @@ export function WalletPanel({ wallet }) {
         <div className="rounded border border-slate-800 bg-slate-950 p-2">
           <div className="text-slate-600 mb-1">$AGIALPHA balance</div>
           <div className="text-slate-200 font-mono">{isConnected ? (agiBalance ?? '—') : 'not connected'}</div>
-          {agiToken && <div className="text-[10px] text-slate-500 font-mono mt-1 break-all">token {agiToken}</div>}
+          {agiToken && (
+            <div className="text-[10px] text-slate-500 mt-1 break-all">
+              token <EnsAddress address={agiToken} className="text-slate-400" />
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="rounded border border-slate-800 bg-slate-950 p-2 text-xs">
+        <div className="text-slate-600 mb-1">Agent reputation (AgiJobManager)</div>
+        <div className="text-slate-200 font-mono">{isConnected ? (agentReputation ?? '—') : 'not connected'}</div>
+        {reputationSource && <div className="text-[10px] text-slate-500 mt-1">source: {reputationSource}</div>}
+        {reputationContract && (
+          <div className="text-[10px] text-slate-500 mt-1 break-all">
+            contract <EnsAddress address={reputationContract} className="text-slate-400" />
+          </div>
+        )}
       </div>
     </div>
   )

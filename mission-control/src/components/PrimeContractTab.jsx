@@ -323,7 +323,7 @@ export function PrimeContractTab({ wallet, jobs = [] }) {
         <div>
           <div className="text-xs text-slate-500 uppercase tracking-wider">Prime contract</div>
           <div className="text-sm text-slate-200 font-semibold">AGI Job Discovery Prime</div>
-          <div className="text-xs text-blue-400 font-mono break-all">{PRIME_CONTRACT}</div>
+          <div className="text-xs text-blue-400 font-mono break-all"><EnsAddress address={PRIME_CONTRACT} /></div>
         </div>
         <button
           onClick={refreshReadViews}
