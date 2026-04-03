@@ -46,7 +46,7 @@ import path from "path";
 
 // ── Monitor config ────────────────────────────────────────────────────────────
 
-const SCAN_BLOCKS       = 50_000;   // ~1 week of blocks
+const SCAN_BLOCKS = 1000
 const POLL_INTERVAL_MS  = 60_000;   // 1 minute between scans
 const MONITOR_STATE_FILE = path.join(CONFIG.WORKSPACE_ROOT, "prime_monitor_state.json");
 
@@ -55,7 +55,7 @@ const MONITOR_STATE_FILE = path.join(CONFIG.WORKSPACE_ROOT, "prime_monitor_state
 async function loadMonitorState() {
   const data = await readJson(MONITOR_STATE_FILE, null);
   return data ?? {
-    lastProcurementBlock: 0,
+    lastProcurementBlock: 24780900,
     lastShortlistBlock:   0,
     startedAt:            new Date().toISOString(),
     cycles:               0,
