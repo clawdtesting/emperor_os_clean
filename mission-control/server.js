@@ -103,6 +103,79 @@ app.get('/api/agent', (_, res) => res.json({
   infra: 'GitHub Actions + Render',
 }))
 
+
+const AGI_JOB_MANAGER_CONTRACT = (process.env.AGI_JOB_MANAGER_CONTRACT || '0xB3AAeb69b630f0299791679c063d68d6687481d1').toLowerCase()
+
+function readNumericCandidate(value) {
+  if (value == null) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value)
+  if (typeof value === 'object') {
+    for (const key of ['reputation', 'score', 'value', 'agentReputation', 'agent_score']) {
+      const parsed = readNumericCandidate(value[key])
+      if (parsed != null) return parsed
+    }
+  }
+  return null
+}
+
+async function lookupReputationViaMcp(address) {
+  const candidates = [
+    ['get_agent_reputation', { agent: address }],
+    ['get_agent_reputation', { address }],
+    ['get_reputation', { agent: address }],
+    ['get_reputation', { address }],
+    ['agent_reputation', { address }],
+    ['get_agent_profile', { address }],
+  ]
+
+  for (const [tool, args] of candidates) {
+    try {
+      const data = await callMcp(tool, args)
+      const parsed = readNumericCandidate(data)
+      if (parsed != null) return { reputation: parsed, source: `mcp:${tool}` }
+    } catch {}
+  }
+
+  return null
+}
+
+
+
+app.get('/api/agent-reputation/:address', async (req, res) => {
+  const address = String(req.params.address || '').toLowerCase()
+  if (!/^0x[a-f0-9]{40}$/.test(address)) {
+    return res.status(400).json({ error: 'invalid address' })
+  }
+
+  try {
+    const mcpValue = await lookupReputationViaMcp(address)
+    if (mcpValue) {
+      return res.json({
+        reputation: mcpValue.reputation,
+        source: mcpValue.source,
+        contract: AGI_JOB_MANAGER_CONTRACT,
+      })
+    }
+
+    const jobs = await callMcp('list_jobs')
+    const list = Array.isArray(jobs) ? jobs : jobs?.jobs || jobs?.result || []
+    const mine = list.filter(j => String(j?.assignedAgent || '').toLowerCase() === address)
+    const completed = mine.filter(j => j?.status === 'Completed').length
+    const disputed = mine.filter(j => j?.status === 'Disputed').length
+    const assigned = mine.filter(j => j?.status === 'Assigned').length
+
+    return res.json({
+      reputation: completed - disputed,
+      source: 'derived:list_jobs',
+      contract: AGI_JOB_MANAGER_CONTRACT,
+      breakdown: { completed, disputed, assigned },
+    })
+  } catch (e) {
+    return res.status(500).json({ error: e.message || 'Failed to read agent reputation' })
+  }
+})
+
 // ── Debug: raw MCP response ───────────────────────────────────────────────────
 app.get('/api/debug-mcp', async (req, res) => {
   try {
