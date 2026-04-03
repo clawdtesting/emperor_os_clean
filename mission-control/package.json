@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "check:conflicts": "if rg -n \"^(<<<<<<<|=======|>>>>>>>)\" src; then echo \"Merge conflict markers found. Resolve conflicts before build.\"; exit 1; else echo \"No merge conflict markers found.\"; fi",
+    "check:conflicts": "if command -v rg >/dev/null 2>&1; then rg -n '^(<<<<<<<|=======|>>>>>>>)' src; else grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' src; fi && { echo 'Merge conflict markers found. Resolve conflicts before build.'; exit 1; } || echo 'No merge conflict markers found.'",
     "build": "npm run check:conflicts && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
