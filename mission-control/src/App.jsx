@@ -1,8 +1,3 @@
-diff --git a/mission-control/src/App.jsx b/mission-control/src/App.jsx
-index 8c165d65b0b81abd7d40802c47d9a79d8e9cb194..7ef73e09793e01330dbcea98b1af2489099491b7 100644
---- a/mission-control/src/App.jsx
-+++ b/mission-control/src/App.jsx
-@@ -1,122 +1,353 @@
 import { useMemo, useState } from 'react'
 import { useJobs } from './hooks/useJobs'
 import { useWallet } from './hooks/useWallet'
