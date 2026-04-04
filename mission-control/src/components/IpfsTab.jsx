@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const GATEWAYS = [
   'https://ipfs.io/ipfs/',
   'https://cloudflare-ipfs.com/ipfs/',
   'https://gateway.pinata.cloud/ipfs/',
 ]
+const STORAGE_KEY = 'ipfs-briefs-v1'
 
+// ── Storage helpers ───────────────────────────────────────────────────────────
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+}
+function persistSaved(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+}
+
+// ── IPFS fetch ────────────────────────────────────────────────────────────────
 async function fetchFromIpfs(uri) {
   const cid = uri.replace('ipfs://', '')
   for (const gw of GATEWAYS) {
@@ -13,67 +23,36 @@ async function fetchFromIpfs(uri) {
       const res = await fetch(gw + cid, { signal: AbortSignal.timeout(10000) })
       if (res.ok) {
         const text = await res.text()
-        try {
-          return { type: 'json', data: JSON.parse(text), raw: text }
-        } catch {
-          return { type: 'text', data: text, raw: text }
-        }
+        try { return { type: 'json', data: JSON.parse(text), raw: text } }
+        catch { return { type: 'text', data: text, raw: text } }
       }
     } catch { continue }
   }
   throw new Error('All IPFS gateways failed — try again or check the CID')
 }
 
-// Extract all ipfs:// links from a raw string or nested object
-function extractIpfsLinks(source) {
-  const raw = typeof source === 'string' ? source : JSON.stringify(source)
-  const matches = raw.match(/ipfs:\/\/[a-zA-Z0-9]+/g)
+// ── Parsers ───────────────────────────────────────────────────────────────────
+function extractIpfsLinks(raw) {
+  const matches = (typeof raw === 'string' ? raw : JSON.stringify(raw)).match(/ipfs:\/\/[a-zA-Z0-9]+/g)
   return [...new Set(matches || [])]
 }
 
-// Parse plain-text / markdown into spec fields
 function textToSpec(text, uri) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-
-  // First markdown heading or first non-empty line → title
   const headingLine = lines.find(l => /^#+\s/.test(l))
   const title = headingLine
     ? headingLine.replace(/^#+\s+/, '')
     : (lines[0]?.length < 120 ? lines[0] : null) || uri
-
-  // Everything after the title line → details
-  const startIdx = headingLine
-    ? lines.indexOf(headingLine) + 1
-    : 1
+  const startIdx = headingLine ? lines.indexOf(headingLine) + 1 : 1
   const details = lines.slice(startIdx).join('\n').trim()
-
-  return {
-    name: title,
-    properties: {
-      title,
-      summary: '',
-      details,
-      category: '',
-      tags: [],
-      deliverables: [],
-      acceptanceCriteria: [],
-      requirements: [],
-      payoutAGIALPHA: null,
-      durationSeconds: null,
-    },
-  }
+  return { name: title, properties: { title, summary: '', details, category: '', tags: [], deliverables: [], acceptanceCriteria: [], requirements: [], payoutAGIALPHA: null, durationSeconds: null } }
 }
 
 function normalizeToSpec(result, uri) {
   if (result.type === 'text') return textToSpec(result.data, uri)
-
   const data = result.data
   if (!data || typeof data !== 'object') return textToSpec(String(data ?? ''), uri)
-
-  // Already a valid job spec
   if (data?.properties?.schema?.startsWith('agijobmanager')) return data
-
-  // Try to build a spec from whatever fields exist
   const p = data?.properties || data
   return {
     name: data?.name || p?.title || uri,
@@ -92,6 +71,7 @@ function normalizeToSpec(result, uri) {
   }
 }
 
+// ── Brief display (inline, no modal) ─────────────────────────────────────────
 function BriefDisplay({ spec, uri }) {
   const p = spec?.properties || {}
   const durationDays = p.durationSeconds ? Math.round(p.durationSeconds / 86400) : null
@@ -102,12 +82,8 @@ function BriefDisplay({ spec, uri }) {
     <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
       <div className="border-b border-slate-800 px-5 py-3 flex items-center justify-between">
         <div className="text-sm font-semibold text-white">Job Brief</div>
-        <a
-          href={GATEWAYS[0] + cid}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-400 hover:text-blue-300 font-mono"
-        >
+        <a href={GATEWAYS[0] + cid} target="_blank" rel="noopener noreferrer"
+           className="text-xs text-blue-400 hover:text-blue-300 font-mono">
           {cidShort} ↗
         </a>
       </div>
@@ -160,8 +136,7 @@ function BriefDisplay({ spec, uri }) {
             <ul className="space-y-1.5">
               {p.deliverables.map((d, i) => (
                 <li key={i} className="flex gap-2 text-sm text-slate-300">
-                  <span className="text-blue-500 shrink-0 mt-0.5">→</span>
-                  <span>{d}</span>
+                  <span className="text-blue-500 shrink-0 mt-0.5">→</span><span>{d}</span>
                 </li>
               ))}
             </ul>
@@ -174,8 +149,7 @@ function BriefDisplay({ spec, uri }) {
             <ul className="space-y-1.5">
               {p.acceptanceCriteria.map((c, i) => (
                 <li key={i} className="flex gap-2 text-sm text-slate-300">
-                  <span className="text-green-500 shrink-0 mt-0.5">✓</span>
-                  <span>{c}</span>
+                  <span className="text-green-500 shrink-0 mt-0.5">✓</span><span>{c}</span>
                 </li>
               ))}
             </ul>
@@ -188,8 +162,7 @@ function BriefDisplay({ spec, uri }) {
             <ul className="space-y-1.5">
               {p.requirements.map((r, i) => (
                 <li key={i} className="flex gap-2 text-sm text-slate-300">
-                  <span className="text-amber-500 shrink-0 mt-0.5">•</span>
-                  <span>{r}</span>
+                  <span className="text-amber-500 shrink-0 mt-0.5">•</span><span>{r}</span>
                 </li>
               ))}
             </ul>
@@ -208,12 +181,98 @@ function BriefDisplay({ spec, uri }) {
   )
 }
 
+// ── Saved brief row ───────────────────────────────────────────────────────────
+function SavedRow({ entry, onLoad, onRename, onDelete }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(entry.alias)
+
+  function commitRename() {
+    const name = draft.trim()
+    if (name) onRename(entry.id, name)
+    setEditing(false)
+  }
+
+  const cid = entry.uri.replace('ipfs://', '')
+  const cidShort = cid.slice(0, 8) + '...' + cid.slice(-4)
+  const date = new Date(entry.savedAt).toLocaleDateString()
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-800 bg-slate-900 group hover:border-slate-700 transition-colors">
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditing(false) }}
+          onBlur={commitRename}
+          className="flex-1 text-xs bg-slate-800 border border-blue-500 rounded px-2 py-1 text-slate-200 focus:outline-none"
+        />
+      ) : (
+        <button
+          onClick={() => onLoad(entry)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <div className="text-xs text-slate-200 truncate font-medium">{entry.alias}</div>
+          <div className="text-xs text-slate-600 font-mono mt-0.5">{cidShort} · {date}</div>
+        </button>
+      )}
+
+      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!editing && (
+          <button
+            onClick={() => { setDraft(entry.alias); setEditing(true) }}
+            title="Rename"
+            className="text-xs px-1.5 py-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-800"
+          >
+            ✎
+          </button>
+        )}
+        <button
+          onClick={() => onDelete(entry.id)}
+          title="Remove"
+          className="text-xs px-1.5 py-1 rounded text-slate-500 hover:text-red-400 hover:bg-slate-800"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main tab ──────────────────────────────────────────────────────────────────
 export function IpfsTab() {
   const [link, setLink] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [primaryBrief, setPrimaryBrief] = useState(null)
   const [nestedBriefs, setNestedBriefs] = useState([])
+  const [saved, setSaved] = useState(loadSaved)
+
+  // Keep saved list in sync with localStorage
+  useEffect(() => { persistSaved(saved) }, [saved])
+
+  function saveEntry(uri, spec) {
+    setSaved(prev => {
+      if (prev.some(e => e.uri === uri)) return prev // already stored
+      const alias = spec?.properties?.title || spec?.name || uri
+      return [{ id: crypto.randomUUID(), uri, alias, spec, savedAt: new Date().toISOString() }, ...prev]
+    })
+  }
+
+  function renameEntry(id, alias) {
+    setSaved(prev => prev.map(e => e.id === id ? { ...e, alias } : e))
+  }
+
+  function deleteEntry(id) {
+    setSaved(prev => prev.filter(e => e.id !== id))
+  }
+
+  function loadEntry(entry) {
+    setPrimaryBrief({ uri: entry.uri, spec: entry.spec })
+    setNestedBriefs([])
+    setLink(entry.uri)
+    setError(null)
+  }
 
   async function handleFetch() {
     const uri = link.trim()
@@ -232,14 +291,16 @@ export function IpfsTab() {
       const result = await fetchFromIpfs(uri)
       const spec = normalizeToSpec(result, uri)
       setPrimaryBrief({ uri, spec })
+      saveEntry(uri, spec)
 
-      // Find and fetch nested IPFS links inside the raw content (excluding self)
       const nested = extractIpfsLinks(result.raw).filter(l => l !== uri)
       if (nested.length > 0) {
         const results = await Promise.allSettled(
           nested.map(async nestedUri => {
             const res = await fetchFromIpfs(nestedUri)
-            return { uri: nestedUri, spec: normalizeToSpec(res, nestedUri) }
+            const nestedSpec = normalizeToSpec(res, nestedUri)
+            saveEntry(nestedUri, nestedSpec)
+            return { uri: nestedUri, spec: nestedSpec }
           })
         )
         setNestedBriefs(results.filter(r => r.status === 'fulfilled').map(r => r.value))
@@ -253,6 +314,7 @@ export function IpfsTab() {
 
   return (
     <div className="space-y-4">
+      {/* Input */}
       <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
         <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">IPFS Brief Viewer</div>
         <div className="flex gap-2">
@@ -277,10 +339,38 @@ export function IpfsTab() {
         )}
       </div>
 
+      {/* Saved briefs */}
+      {saved.length > 0 && (
+        <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Saved briefs ({saved.length})</div>
+            <button
+              onClick={() => { if (window.confirm('Clear all saved briefs?')) setSaved([]) }}
+              className="text-xs text-slate-600 hover:text-red-400 transition-colors"
+            >
+              clear all
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {saved.map(entry => (
+              <SavedRow
+                key={entry.id}
+                entry={entry}
+                onLoad={loadEntry}
+                onRename={renameEntry}
+                onDelete={deleteEntry}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Primary brief */}
       {primaryBrief && (
         <BriefDisplay uri={primaryBrief.uri} spec={primaryBrief.spec} />
       )}
 
+      {/* Nested briefs */}
       {nestedBriefs.length > 0 && (
         <div className="space-y-3">
           <div className="text-xs text-slate-500 uppercase tracking-wider px-1">
