@@ -43,44 +43,7 @@ async function pinFile(content, filename, mimeType) {
 
 // ── Claude call ─────────────────────────────────────────────────────────────
 
-async function generate(spec) {
-  const props = spec.properties
-  const brand = props.context.brand
-
-  const system = `You are an expert SVG illustrator producing a paid logo deliverable for the AGI Alpha job market.
-Human validators will approve or reject based on whether every acceptance criterion is met.
-
-Output a single JSON object:
-{
-  "deliverable": "...",
-  "summary": "...",
-  "validatorNote": "..."
-}
-
-Rules:
-- "deliverable": a complete, self-contained SVG document (viewBox="0 0 512 512") representing the Emperor_OS logo.
-  The SVG MUST:
-  • Use the palette: gold #C9A84C, matte black #1A1A1A, crimson #9B1C1C, royal purple #4B0082, and cream #F5E6C8
-  • Depict a stylised mechanical emperor head/crown icon — regal, dark, detailed
-  • Include a jewelled crown, glowing red eye lenses, and armour elements using SVG shapes, gradients, and filters
-  • Have a transparent background (no background rect, or explicit fill="none" on root)
-  • Be readable at both 512×512 and 64×64 (use bold, clear shapes — avoid hairlines)
-  • Be valid, self-contained SVG with no external resources
-- "summary": 2-3 sentence description of the design choices made.
-- "validatorNote": numbered list mapping each acceptance criterion to the SVG element or technique that satisfies it.
-
-Output ONLY the JSON object. No preamble. No markdown fences.`
-
-  const user = JSON.stringify({
-    title:              props.title,
-    details:            props.details,
-    deliverables:       props.deliverables,
-    acceptanceCriteria: props.acceptanceCriteria,
-    palette:            brand.paletteHex,
-    visualReference:    brand.visualReference,
-    avoid:              brand.avoid
-  })
-
+async function claudeCall(system, user, maxTokens = 8192) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -90,19 +53,68 @@ Output ONLY the JSON object. No preamble. No markdown fences.`
     },
     body: JSON.stringify({
       model:       MODEL,
-      max_tokens:  8192,
+      max_tokens:  maxTokens,
       temperature: 0,
       system,
       messages: [{ role: 'user', content: user }]
     }),
-    signal: AbortSignal.timeout(120_000)
+    signal: AbortSignal.timeout(300_000)
   })
-
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`)
   const data = await res.json()
-  const text = data.content?.[0]?.text?.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+  if (data.stop_reason === 'max_tokens') throw new Error(`Claude hit max_tokens (${maxTokens}) — response truncated`)
+  const text = data.content?.[0]?.text?.trim()
   if (!text) throw new Error('Empty Claude response')
-  return JSON.parse(text)
+  return text
+}
+
+async function generate(spec) {
+  const props = spec.properties
+  const brand = props.context.brand
+  const jobCtx = JSON.stringify({
+    title:              props.title,
+    details:            props.details,
+    deliverables:       props.deliverables,
+    acceptanceCriteria: props.acceptanceCriteria,
+    palette:            brand.paletteHex,
+    visualReference:    brand.visualReference,
+    avoid:              brand.avoid
+  })
+
+  // Step 1: Generate SVG only (plain text, no JSON wrapper to avoid truncation)
+  const svgSystem = `You are an expert SVG illustrator producing a paid logo deliverable for the AGI Alpha job market.
+
+Output ONLY a complete, self-contained SVG document (viewBox="0 0 512 512") representing the Emperor_OS logo.
+The SVG MUST:
+• Use the palette: gold #C9A84C, matte black #1A1A1A, crimson #9B1C1C, royal purple #4B0082, and cream #F5E6C8
+• Depict a stylised mechanical emperor head/crown icon — regal, dark, detailed
+• Include a jewelled crown, glowing red eye lenses, and armour elements using SVG shapes, gradients, and filters
+• Have a transparent background (no background rect, or explicit fill="none" on root)
+• Be readable at both 512×512 and 64×64 (use bold, clear shapes — avoid hairlines)
+• Be valid, self-contained SVG with no external resources
+
+Output ONLY the SVG markup. No preamble. No markdown fences. No JSON.`
+
+  const svgText = await claudeCall(svgSystem, jobCtx, 8192)
+  const deliverable = svgText.replace(/^```(?:xml|svg)?\n?/, '').replace(/\n?```$/, '').trim()
+  if (!deliverable.startsWith('<svg') && !deliverable.startsWith('<?xml')) {
+    throw new Error('Claude did not return SVG markup')
+  }
+
+  // Step 2: Generate summary + validatorNote (small JSON, no risk of truncation)
+  const metaSystem = `You reviewed an SVG logo deliverable for the AGI Alpha job market.
+Output a single JSON object:
+{
+  "summary": "2-3 sentence description of the design choices made.",
+  "validatorNote": "numbered list mapping each acceptance criterion to the SVG element or technique that satisfies it."
+}
+Output ONLY the JSON object. No preamble. No markdown fences.`
+
+  const metaUser = `Job spec:\n${jobCtx}\n\nSVG produced (first 500 chars):\n${deliverable.slice(0, 500)}`
+  const metaText = await claudeCall(metaSystem, metaUser, 1024)
+  const meta = JSON.parse(metaText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim())
+
+  return { deliverable, summary: meta.summary, validatorNote: meta.validatorNote }
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
