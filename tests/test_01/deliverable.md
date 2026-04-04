@@ -1,205 +1,197 @@
 # Understanding the AGI Alpha Job Market: A Beginner's Guide to Two Smart Contracts
 
-> **Who is this for?** Anyone curious about how the AGI Alpha job marketplace works under the hood — no coding experience required. If you've never heard of a "smart contract" before, start here.
+> **Who is this for?** You've heard about blockchain and smart contracts, but you've never actually read one. That's perfectly fine. This guide explains everything using plain English and everyday analogies. No coding knowledge required.
 
 ---
 
-## First Things First: What Is a Smart Contract?
+## First: What Even Is a Smart Contract?
 
-Imagine a vending machine. You put in money, press a button, and the machine automatically gives you a snack. No cashier needed. No one can pocket your money and walk away. The rules are baked into the machine itself.
+Imagine a vending machine. You put in money, press a button, and the machine automatically gives you a snack — no cashier needed, no arguing, no "let me check with my manager." The rules are baked into the machine itself.
 
-A **smart contract** is like that vending machine, but for agreements on the internet. It's a set of rules written in code and stored on a public blockchain (think of the blockchain as a shared, tamper-proof notebook that thousands of computers around the world all keep a copy of). Once deployed, the contract runs automatically — no company, no middleman, no single person can secretly change the rules or steal the funds.
+A **smart contract** is like that vending machine, but for agreements on the internet. It's a set of rules written in code and stored on a blockchain (think of the blockchain as a public, tamper-proof notebook that thousands of computers share). Once the rules are set, the contract runs automatically — no middleman, no company, no human gatekeeper.
 
-The AGI Alpha ecosystem uses **two smart contracts** that work together like a front desk and a back office at a staffing agency. Let's meet them.
+Now let's meet the two smart contracts that power the AGI Alpha job marketplace.
 
 ---
 
-## Contract 1: AGIJobManager — The Back Office Engine
-
+## Contract 1: AGIJobManager
+### *The Core Job Marketplace and Settlement Engine*
 **Address:** `0xB3AAeb69b630f0299791679c063d68d6687481d1`
 
-### The Analogy
+### The Analogy: A Courthouse + Escrow Office
 
-Think of **AGIJobManager** as the **escrow officer and settlement engine** at a real estate closing. When you buy a house, you don't hand cash directly to the seller on day one. Instead, a neutral third party (the escrow officer) holds the money in a locked account. Once all conditions are met — inspection passed, paperwork signed — the money is released automatically. If the deal falls through, the money goes back.
+Think of **AGIJobManager** as a combination of two things you already know:
 
-AGIJobManager does exactly this, but for AI jobs and tasks posted on the AGI Alpha marketplace.
+1. **An escrow office** — When you buy a house, a neutral third party holds your money until the deal is done. Neither buyer nor seller can touch it mid-deal.
+2. **A courthouse** — If there's a dispute, there's a formal process to resolve it fairly.
+
+AGIJobManager does both of these things automatically, for AI jobs.
 
 ### What Does It Actually Do?
 
-**1. Posting a Job (Opening Escrow)**
+Here's the lifecycle of a job on AGIJobManager, step by step:
 
-When a client wants to hire an AI agent or a human contributor to complete a task, they post the job through AGIJobManager. Along with the job description, they lock up a payment — in cryptocurrency — inside the contract. That money is now held safely in the "vending machine." The client can't secretly take it back, and the worker can't grab it before the job is done.
+**Step 1 — A Job Gets Posted**
+Someone (let's call them the "Client") wants an AI agent to do some work — maybe analyze data, generate content, or run a complex task. They post the job on the contract, describing what they need and how much they'll pay.
 
-**2. Accepting a Job (Matching)**
+**Step 2 — Payment Goes Into Escrow**
+The Client's payment is locked inside the smart contract immediately. It's like putting cash in a sealed envelope that neither party can open until the job is done. The Client can't take it back on a whim, and the Worker can't grab it early.
 
-A worker (human or AI agent) sees the open job and signals they want to take it. The contract records this match. Think of it like a handshake that gets written into the tamper-proof notebook — permanent and visible to everyone.
+**Step 3 — A Worker Accepts the Job**
+An AI agent or a human worker sees the job and accepts it. The contract records this agreement on the blockchain — permanently and publicly.
 
-**3. Completing and Verifying Work (Releasing Escrow)**
+**Step 4 — Work Gets Done**
+The worker completes the task and submits their result back to the contract.
 
-Once the worker submits their completed work, the contract checks whether the agreed conditions have been met. If yes, it automatically releases the locked payment to the worker. No invoice needed. No waiting 30 days for accounts payable. The moment conditions are satisfied, the funds move.
+**Step 5 — Settlement**
+If the Client confirms the work is good, the contract automatically releases the payment to the Worker. Done. No invoices, no payment delays, no "the check is in the mail."
 
-**4. Handling Disputes (Arbitration Rules)**
+**Step 6 — Disputes (If Any)**
+If the Client and Worker disagree about whether the work was done correctly, AGIJobManager has built-in dispute resolution rules. Think of it as a judge that follows a strict rulebook — no favoritism, no bribery possible.
 
-What if the client says the work wasn't done properly? AGIJobManager has built-in rules for this — like a referee whose decisions are written in advance. Depending on how the dispute resolves, funds go to the worker, back to the client, or split between them. No one can bribe the referee because the referee is code.
+### Key Features at a Glance
 
-**5. Keeping a Public Record**
+| Feature | What It Means in Plain English |
+|---|---|
+| Escrow | Payment is locked until work is verified |
+| Immutable Records | Every job, bid, and payment is recorded forever |
+| Automated Settlement | No human needed to release funds |
+| Dispute Resolution | Built-in rules for handling disagreements |
+| Permissionless | Anyone can post or accept a job |
 
-Every job posted, every match made, every payment settled — all of it is recorded on the blockchain forever. Anyone can audit the history. This creates trust without requiring anyone to trust a single company.
+### Why Does This Matter?
 
-### In One Sentence
-
-> AGIJobManager is the neutral, automated back office that holds money safely, matches workers to jobs, and pays out automatically when work is done — no middleman required.
+Traditional freelance platforms (think Upwork or Fiverr) are run by companies. Those companies can freeze your account, take a big cut, change the rules overnight, or go bankrupt. AGIJobManager has no company behind it. The rules are the code, and the code lives on the blockchain forever. Nobody can change the deal after it's made.
 
 ---
 
-## Contract 2: AGIJobDiscoveryPrime — The Premium Front Desk
-
+## Contract 2: AGIJobDiscoveryPrime
+### *The Premium Hiring and Discovery Layer*
 **Address:** `0xd5EF1dde7Ac60488f697ff2A7967a52172A78F29`
 
-### The Analogy
+### The Analogy: A VIP Recruitment Agency
 
-If AGIJobManager is the back office, **AGIJobDiscoveryPrime** is the **VIP concierge desk at a luxury hotel**.
+If AGIJobManager is the courthouse and escrow office, then **AGIJobDiscoveryPrime** is the **premium recruitment agency** that sits in the lobby.
 
-Anyone can walk into the hotel lobby and ask for a room (that's the basic marketplace). But premium guests get a dedicated concierge who knows which rooms are available, which workers have the best track records, and can fast-track the whole process. AGIJobDiscoveryPrime is that concierge layer — a smarter, more curated way to find and hire top talent.
+Imagine you're a company that needs to hire a specialist quickly. You could post a job on a public board and wade through hundreds of applications yourself. Or you could walk into a high-end recruitment agency that already knows the best candidates, has verified their credentials, and can match you with the right person in minutes — for a premium fee.
+
+AGIJobDiscoveryPrime is that agency. It's a smarter, more curated layer built *on top of* AGIJobManager.
 
 ### What Does It Actually Do?
 
-**1. Premium Listings and Boosted Visibility**
+**Enhanced Discovery**
+AGIJobDiscoveryPrime maintains a curated registry of workers and AI agents. Instead of shouting into the void, Clients can search through a filtered, quality-checked pool. Think of it like the difference between a Google search with no filters versus a LinkedIn search where you can filter by skills, reputation, and availability.
 
-Clients who want their jobs seen first — by the best workers — can use AGIJobDiscoveryPrime to boost their listings. Think of it like paying for a "Featured Job" on a job board. The contract manages who gets that premium placement and for how long.
+**Reputation and Credentialing**
+Workers who use AGIJobDiscoveryPrime can build up a verifiable track record. Every completed job, every positive review, every on-time delivery — it all gets recorded on the blockchain. You can't fake it, you can't buy it, and it follows you forever (in a good way, if you do good work).
 
-**2. Curated Worker Discovery**
+**Priority Matching**
+Premium clients get priority access to top-tier workers. It's like having a fast lane. If you're willing to pay for the premium service, you get matched faster and with higher-quality candidates.
 
-Not all workers are equal. AGIJobDiscoveryPrime maintains a layer of reputation and discovery logic. Workers who have strong track records (verified through past jobs settled in AGIJobManager) can be surfaced more prominently. Clients searching for specialized skills get better matches faster.
+**Staking and Commitment Signals**
+Some workers in the Discovery layer may "stake" tokens — essentially putting up a deposit as a promise of good behavior. If they do bad work or disappear, they lose their stake. This is like a contractor putting up a performance bond before starting a renovation. It's a financial signal that says: "I'm serious, and I have skin in the game."
 
-**3. Subscription and Access Tiers**
+**Subscription or Access Tiers**
+AGIJobDiscoveryPrime introduces the concept of tiers — different levels of access for different levels of commitment. Basic users get basic discovery. Premium users get premium matching, priority queues, and access to the best AI agents in the ecosystem.
 
-Some features of the discovery layer require holding a certain amount of the platform's token or paying a subscription fee. AGIJobDiscoveryPrime manages these access rules automatically. Want to unlock advanced search filters or priority matching? The contract checks your eligibility and grants or denies access — instantly, without a customer service rep.
+### Key Features at a Glance
 
-**4. Referral and Incentive Logic**
-
-The contract can also handle referral rewards — if you bring a new client or worker to the platform, AGIJobDiscoveryPrime can automatically track that and distribute referral bonuses when conditions are met.
-
-**5. Feeding Jobs Into AGIJobManager**
-
-Here's the key link: AGIJobDiscoveryPrime doesn't handle money or settlement itself. Once a premium match is made — once the concierge has done their job — the actual job posting and payment escrow gets handed off to AGIJobManager. Discovery Prime is the front door; AGIJobManager is the vault.
-
-### In One Sentence
-
-> AGIJobDiscoveryPrime is the smart, curated hiring layer that helps clients find the best workers faster — and then hands the actual job and payment off to AGIJobManager to execute safely.
+| Feature | What It Means in Plain English |
+|---|---|
+| Curated Registry | Only quality-verified workers appear here |
+| On-Chain Reputation | Track records that can't be faked or deleted |
+| Priority Matching | Pay more, get matched faster and better |
+| Staking | Workers put money on the line to prove commitment |
+| Tiered Access | Different service levels for different needs |
 
 ---
 
 ## How the Two Contracts Work Together
 
-Here's a step-by-step walkthrough of a complete job lifecycle, showing how both contracts interact:
+Here's where it gets interesting. These two contracts aren't competitors — they're teammates. Think of them as two floors of the same building.
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║              AGI ALPHA JOB LIFECYCLE — PLAIN ENGLISH             ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║  CLIENT                  DISCOVERY PRIME         JOB MANAGER    ║
-║  (Hirer)                 (Front Desk)             (Back Office)  ║
-║    │                          │                       │          ║
-║    │  1. "I need an AI        │                       │          ║
-║    │     agent for a task"    │                       │          ║
-║    │─────────────────────────>│                       │          ║
-║    │                          │                       │          ║
-║    │  2. Discovery Prime      │                       │          ║
-║    │     checks eligibility,  │                       │          ║
-║    │     surfaces top workers │                       │          ║
-║    │<─────────────────────────│                       │          ║
-║    │                          │                       │          ║
-║    │  3. Client picks a       │                       │          ║
-║    │     worker & confirms    │                       │          ║
-║    │─────────────────────────>│                       │          ║
-║    │                          │                       │          ║
-║    │                          │  4. Discovery Prime   │          ║
-║    │                          │     creates the job   │          ║
-║    │                          │     + locks payment   │          ║
-║    │                          │──────────────────────>│          ║
-║    │                          │                       │          ║
-║    │                          │                       │ 5. Job   ║
-║    │                          │                       │    is    ║
-║    │                          │                       │  live &  ║
-║    │                          │                       │  funded  ║
-║    │                          │                       │          ║
-║  WORKER                       │                       │          ║
-║  (AI Agent / Human)           │                       │          ║
-║    │                          │                       │          ║
-║    │  6. Worker completes     │                       │          ║
-║    │     the task & submits   │                       │          ║
-║    │──────────────────────────────────────────────────>          ║
-║    │                          │                       │          ║
-║    │                          │                       │ 7. Job   ║
-║    │                          │                       │  Manager ║
-║    │                          │                       │  verifies║
-║    │                          │                       │  & pays  ║
-║    │<──────────────────────────────────────────────────          ║
-║    │  8. Payment arrives      │                       │          ║
-║       automatically           │                       │          ║
-║                               │                       │          ║
-╚══════════════════════════════════════════════════════════════════╝
++-------------------------------------------------------+
+|          AGIJobDiscoveryPrime (Floor 2)                |
+|   Premium discovery, reputation, staking, tiers        |
+|   "The VIP Recruitment Agency"                         |
+|                                                        |
+|   Finds the right match → Hands off to Floor 1        |
++--------------------------|----------------------------+
+                           |
+                    Job is created
+                    Payment locked
+                           |
++--------------------------|----------------------------+
+|          AGIJobManager (Floor 1)                       |
+|   Core escrow, settlement, dispute resolution          |
+|   "The Courthouse + Escrow Office"                     |
+|                                                        |
+|   Executes the deal → Releases payment on completion  |
++-------------------------------------------------------+
+                           |
+                    Blockchain (Foundation)
+              Permanent, public, tamper-proof record
 ```
 
-### Breaking Down Each Step
+### The Step-by-Step Interaction Walkthrough
 
-| Step | Who Acts | What Happens |
-|------|----------|--------------|
-| 1 | Client | Posts a job request through the Discovery Prime interface |
-| 2 | Discovery Prime | Checks the client's tier, surfaces ranked workers based on reputation |
-| 3 | Client | Selects a worker and confirms the match |
-| 4 | Discovery Prime | Passes the confirmed job + payment details to AGIJobManager |
-| 5 | AGIJobManager | Locks the client's payment in escrow; job is now live |
-| 6 | Worker | Completes the task and submits proof of work |
-| 7 | AGIJobManager | Verifies conditions are met; releases payment automatically |
-| 8 | Worker | Receives payment directly to their wallet — no invoice, no delay |
+**1. Client Enters the System via AGIJobDiscoveryPrime**
+A company wants to hire an AI agent for a complex task. They log into the AGIJobDiscoveryPrime layer, browse the curated registry, and find a highly-rated AI agent with a strong on-chain track record.
 
----
+**2. Discovery Prime Makes the Match**
+AGIJobDiscoveryPrime uses its reputation data, staking signals, and tier information to recommend the best match. The Client selects a Worker.
 
-## Why Does This Two-Contract Design Matter?
+**3. The Job Gets Handed to AGIJobManager**
+Once the match is made, AGIJobDiscoveryPrime creates a formal job on AGIJobManager. This is the moment the deal becomes official. The Client's payment is locked in escrow on AGIJobManager.
 
-You might wonder: why not just have one contract do everything?
+**4. Work Happens**
+The Worker (AI agent or human) does the job. All communication and deliverables are tracked.
 
-Think of it like a restaurant. The **kitchen** (AGIJobManager) is where the real work happens — cooking the food, handling the money, making sure orders are fulfilled correctly. The **front-of-house** (AGIJobDiscoveryPrime) is where customers are greeted, seated, and matched to the right experience.
+**5. Settlement on AGIJobManager**
+When the work is confirmed complete, AGIJobManager automatically releases the payment. No human approval needed.
 
-Keeping them separate means:
+**6. Reputation Updates Back on AGIJobDiscoveryPrime**
+After settlement, the Worker's reputation score on AGIJobDiscoveryPrime is updated. A successful job = better reputation = more visibility = more future work. A failed job = damaged reputation = less visibility.
 
-- **Security:** The money-handling logic (AGIJobManager) stays simple and auditable. Fewer moving parts = fewer ways things can go wrong.
-- **Upgradability:** The discovery and matching logic (AGIJobDiscoveryPrime) can be improved over time — new features, better algorithms — without touching the core settlement engine.
-- **Flexibility:** Different front-end experiences can plug into the same back-office engine. Multiple "concierge desks" could exist, all feeding into one trusted vault.
+This feedback loop is what makes the whole system self-improving over time.
 
 ---
 
-## Key Takeaways for a Complete Newcomer
+## Why Two Contracts Instead of One?
 
-1. **Smart contracts are automated agreements** — like vending machines for deals. No middleman, no trust required.
+Great question. Think of it like a restaurant:
 
-2. **AGIJobManager is the vault and referee** — it holds payments safely and releases them automatically when work is verified.
+- The **kitchen** (AGIJobManager) is where the actual cooking happens. It's functional, reliable, and focused on one thing: making the food correctly.
+- The **front of house** (AGIJobDiscoveryPrime) is where the experience happens. It's where you're greeted, seated, given recommendations, and treated to a premium experience.
 
-3. **AGIJobDiscoveryPrime is the smart matchmaker** — it helps clients find the best workers faster, with premium features and curated discovery.
-
-4. **They work in sequence** — Discovery Prime handles the "finding and matching" phase; AGIJobManager handles the "paying and settling" phase.
-
-5. **Everything is public and permanent** — every job, match, and payment is recorded on the blockchain. Anyone can verify the history.
-
-6. **No one can cheat the system** — the rules are written in code, deployed publicly, and run automatically. Not even the creators of the contracts can secretly change the outcome of a live job.
+Separating these concerns makes the system more flexible. You can upgrade the front-of-house experience without rebuilding the kitchen. You can add new discovery features without touching the core settlement logic. It's good design.
 
 ---
 
-## Glossary of Terms Used
+## Quick Reference: The Two Contracts Side by Side
 
-| Term | Plain English Meaning |
-|------|-----------------------|
-| Smart Contract | A self-executing agreement stored on a blockchain |
-| Blockchain | A shared, tamper-proof digital notebook kept by thousands of computers |
-| Escrow | Money held safely by a neutral party until conditions are met |
-| Wallet | Your personal account on the blockchain — like a digital bank account |
-| Token | A digital asset or currency used within the ecosystem |
-| Reputation | A track record of completed jobs, stored on-chain and verifiable |
-| On-chain | Recorded permanently on the blockchain |
+| | AGIJobManager | AGIJobDiscoveryPrime |
+|---|---|---|
+| **Role** | Core engine | Premium layer |
+| **Analogy** | Courthouse + Escrow | VIP Recruitment Agency |
+| **Main Job** | Lock funds, settle deals | Match clients with workers |
+| **Who Uses It** | Everyone | Premium users |
+| **Key Feature** | Escrow & dispute resolution | Reputation & discovery |
+| **Works Alone?** | Yes | Depends on AGIJobManager |
 
 ---
 
-*This document is intended as an educational overview for newcomers to Web3. It describes contract behavior at a high level using analogies and plain language.*
+## Final Takeaway
+
+The AGI Alpha ecosystem is building a job marketplace where AI agents and humans can work together — and get paid — without needing to trust a company, a platform, or a middleman. 
+
+**AGIJobManager** is the bedrock: the trustless, automatic engine that holds money safely and releases it fairly.
+
+**AGIJobDiscoveryPrime** is the intelligence layer on top: the system that helps the right workers find the right jobs, builds reputations over time, and rewards quality with visibility.
+
+Together, they form a complete, self-sustaining job market for the age of AI — one where the rules are transparent, the payments are automatic, and nobody can pull the rug out from under you.
+
+---
+
+*This document is intended for educational purposes. Contract addresses are provided for reference only.*
