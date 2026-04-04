@@ -1,7 +1,8 @@
 // /home/ubuntu/emperor_OS/.openclaw/workspace/agent/submit.js
 import path from "path";
+import { createHash } from "crypto";
 import { uploadToIpfs, requestJobCompletion } from "./mcp.js";
-import { listAllJobStates, setJobState } from "./state.js";
+import { claimJobStageIdempotency, listAllJobStates, setJobState } from "./state.js";
 import { CONFIG, requireEnv } from "./config.js";
 import { getJobArtifactPaths, writeJson } from "./artifact-manager.js";
 import { buildUnsignedTxPackage } from "./tx-builder.js";
@@ -83,86 +84,118 @@ export async function submit() {
   }
 
   for (const job of ready) {
-    const artifactPaths = getJobArtifactPaths(job.jobId);
-
-    const completionMetadata = buildCompletionMetadata(job, job.deliverableIpfs);
-    await writeJson(artifactPaths.jobCompletion, completionMetadata);
-
-    const completionUpload = await uploadToIpfs(
-      CONFIG.PINATA_JWT,
-      completionMetadata,
-      `job-${job.jobId}-completion.json`
-    );
-
-    if (!completionUpload?.ipfsUri) {
-      throw new Error(`[submit] completion metadata upload failed for job ${job.jobId}`);
-    }
-
-    const preparedTx = await requestJobCompletion(
-      Number(job.jobId),
-      completionUpload.ipfsUri,
-      CONFIG.AGENT_SUBDOMAIN
-    );
-
-    const unsignedCompletion = buildUnsignedTxPackage({
-      kind: "requestJobCompletion",
-      jobId: job.jobId,
-      preparedTx,
-      extra: {
-        jobCompletionURI: completionUpload.ipfsUri,
-        deliverableURI: job.deliverableIpfs.ipfsUri,
-        agentSubdomain: CONFIG.AGENT_SUBDOMAIN,
-        schema: "emperor-os/unsigned-tx/v1",
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    try {
+      const stageKey = `submit:${job.jobId}:${job.deliverableIpfs?.ipfsUri ?? "na"}:${job.validationPath ?? "na"}`;
+      const claim = await claimJobStageIdempotency(job.jobId, "submit", stageKey);
+      if (!claim.claimed) {
+        console.log(`[submit] idempotency skip for job ${job.jobId} (${claim.reason})`);
+        continue;
       }
-    });
+      const artifactPaths = getJobArtifactPaths(job.jobId);
+      if (!job.validationPath || !job.artifactPath || !job.briefPath) {
+        throw new Error("missing deterministic provenance paths (validation/artifact/brief)");
+      }
 
-    await writeJson(artifactPaths.unsignedCompletion, unsignedCompletion);
+      const completionMetadata = buildCompletionMetadata(job, job.deliverableIpfs);
+      await writeJson(artifactPaths.jobCompletion, completionMetadata);
 
-    const jobCompletionSha256 = await sha256FromJsonFile(artifactPaths.jobCompletion);
+      const completionUpload = await uploadToIpfs(
+        CONFIG.PINATA_JWT,
+        completionMetadata,
+        `job-${job.jobId}-completion.json`
+      );
 
-    await runPreSignChecks({
-      unsignedPackage: unsignedCompletion,
-      reviewContext: {
+      if (!completionUpload?.ipfsUri) {
+        throw new Error(`[submit] completion metadata upload failed for job ${job.jobId}`);
+      }
+
+      const preparedTx = await requestJobCompletion(
+        Number(job.jobId),
+        completionUpload.ipfsUri,
+        CONFIG.AGENT_SUBDOMAIN
+      );
+
+      const unsignedCompletion = buildUnsignedTxPackage({
+        kind: "requestJobCompletion",
         jobId: job.jobId,
+        preparedTx,
+        extra: {
+          jobCompletionURI: completionUpload.ipfsUri,
+          deliverableURI: job.deliverableIpfs.ipfsUri,
+          agentSubdomain: CONFIG.AGENT_SUBDOMAIN,
+          schema: "emperor-os/unsigned-tx/v1",
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        }
+      });
+
+      await writeJson(artifactPaths.unsignedCompletion, unsignedCompletion);
+
+      const jobCompletionSha256 = await sha256FromJsonFile(artifactPaths.jobCompletion);
+      const completionProvenanceBundle = {
+        schema: "emperor-os/completion-provenance/v1",
+        jobId: String(job.jobId),
+        deliverableUri: job.deliverableIpfs.ipfsUri,
+        completionUri: completionUpload.ipfsUri,
+        jobCompletionSha256,
+        validationPath: job.validationPath,
+        artifactPath: job.artifactPath,
+        briefPath: job.briefPath
+      };
+      const completionProvenanceBundleHash = createHash("sha256")
+        .update(JSON.stringify(completionProvenanceBundle), "utf8")
+        .digest("hex");
+
+      await runPreSignChecks({
+        unsignedPackage: unsignedCompletion,
+        reviewContext: {
+          jobId: job.jobId,
+          jobCompletionUri: completionUpload.ipfsUri,
+          agentSubdomain: CONFIG.AGENT_SUBDOMAIN
+        },
+        fromAddress: CONFIG.AGENT_ADDRESS,
+        simulationReportPath: path.join(artifactPaths.dir, "completion_simulation.json"),
+        preSignCheckPath: path.join(artifactPaths.dir, "completion_presign_check.json"),
+        expectedJobCompletionUri: completionUpload.ipfsUri,
+        expectedJobCompletionSha256: jobCompletionSha256
+      });
+
+      const signingManifestPath = path.join(artifactPaths.dir, "signing_manifest.json");
+
+      await buildSigningManifest({
+        jobId: job.jobId,
+        kind: "requestJobCompletion",
+        contract: CONFIG.CONTRACT,
+        chainId: CONFIG.CHAIN_ID,
+        deliverableUri: job.deliverableIpfs.ipfsUri,
         jobCompletionUri: completionUpload.ipfsUri,
-        agentSubdomain: CONFIG.AGENT_SUBDOMAIN
-      },
-      fromAddress: CONFIG.AGENT_ADDRESS,
-      simulationReportPath: path.join(artifactPaths.dir, "completion_simulation.json"),
-      preSignCheckPath: path.join(artifactPaths.dir, "completion_presign_check.json"),
-      expectedJobCompletionUri: completionUpload.ipfsUri,
-      expectedJobCompletionSha256: jobCompletionSha256
-    });
+        unsignedPackagePath: artifactPaths.unsignedCompletion,
+        deliverablePath: artifactPaths.deliverable,
+        jobCompletionPath: artifactPaths.jobCompletion,
+        publishManifestPath: artifactPaths.publishManifest,
+        outputPath: signingManifestPath
+      });
 
-    const signingManifestPath = path.join(artifactPaths.dir, "signing_manifest.json");
+      await setJobState(job.jobId, {
+        status: "completion_pending_review",
+        completionMetadataIpfs: completionUpload,
+        unsignedCompletionPath: artifactPaths.unsignedCompletion,
+        signingManifestPath,
+        completionProvenanceBundle,
+        completionProvenanceBundleHash,
+        submittedAt: new Date().toISOString(),
+        attempts: {
+          ...job.attempts,
+          submit: (job.attempts?.submit ?? 0) + 1
+        }
+      });
 
-    await buildSigningManifest({
-      jobId: job.jobId,
-      kind: "requestJobCompletion",
-      contract: CONFIG.CONTRACT,
-      chainId: CONFIG.CHAIN_ID,
-      deliverableUri: job.deliverableIpfs.ipfsUri,
-      jobCompletionUri: completionUpload.ipfsUri,
-      unsignedPackagePath: artifactPaths.unsignedCompletion,
-      deliverablePath: artifactPaths.deliverable,
-      jobCompletionPath: artifactPaths.jobCompletion,
-      publishManifestPath: artifactPaths.publishManifest,
-      outputPath: signingManifestPath
-    });
-
-    await setJobState(job.jobId, {
-      status: "completion_pending_review",
-      completionMetadataIpfs: completionUpload,
-      unsignedCompletionPath: artifactPaths.unsignedCompletion,
-      signingManifestPath,
-      submittedAt: new Date().toISOString(),
-      attempts: {
-        ...job.attempts,
-        submit: (job.attempts?.submit ?? 0) + 1
-      }
-    });
-
-    console.log(`[submit] staged unsigned completion package for ${job.jobId}`);
+      console.log(`[submit] staged unsigned completion package for ${job.jobId}`);
+    } catch (err) {
+      await setJobState(job.jobId, {
+        status: "failed",
+        failReason: `submit error: ${err.message}`
+      });
+      console.error(`[submit] job ${job.jobId} failed: ${err.message}`);
+    }
   }
 }
