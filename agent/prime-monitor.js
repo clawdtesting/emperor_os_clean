@@ -51,11 +51,11 @@ import path from "path";
 // ── Monitor config ────────────────────────────────────────────────────────────
 
 const SCAN_BLOCKS = 1000
-const POLL_INTERVAL_MS  = 60_000;   // 1 minute between scans
+const POLL_INTERVAL_MS  = 60_000;
 const MONITOR_STATE_FILE = path.join(CONFIG.WORKSPACE_ROOT, "prime_monitor_state.json");
+const MONITOR_HEALTH_FILE = path.join(CONFIG.WORKSPACE_ROOT, "monitor_health.json");
 const REORG_SAFETY_BLOCKS = Number(process.env.PRIME_MONITOR_REORG_SAFETY_BLOCKS ?? "24");
-
-// ── Monitor state (persists across restarts) ──────────────────────────────────
+const MAX_CONSECUTIVE_FAILURES = Number(process.env.PRIME_MONITOR_MAX_FAILURES ?? "5");
 
 async function loadMonitorState() {
   const data = await readJson(MONITOR_STATE_FILE, null);
@@ -72,6 +72,50 @@ async function loadMonitorState() {
 
 async function saveMonitorState(state) {
   await writeJson(MONITOR_STATE_FILE, { ...state, updatedAt: new Date().toISOString() });
+}
+
+async function loadMonitorHealth() {
+  return readJson(MONITOR_HEALTH_FILE, {
+    status: "healthy",
+    consecutiveFailures: 0,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastError: null,
+    failureHistory: [],
+    fatalThreshold: MAX_CONSECUTIVE_FAILURES,
+  });
+}
+
+async function saveMonitorHealth(health) {
+  await writeJson(MONITOR_HEALTH_FILE, health);
+}
+
+async function recordMonitorSuccess() {
+  const health = await loadMonitorHealth();
+  health.consecutiveFailures = 0;
+  health.lastSuccessAt = new Date().toISOString();
+  health.status = "healthy";
+  await saveMonitorHealth(health);
+}
+
+async function recordMonitorFailure(err) {
+  const health = await loadMonitorHealth();
+  health.consecutiveFailures = (health.consecutiveFailures ?? 0) + 1;
+  health.lastFailureAt = new Date().toISOString();
+  health.lastError = err.message;
+  health.failureHistory = [
+    ...(health.failureHistory ?? []).slice(-20),
+    { at: new Date().toISOString(), error: err.message, cycle: err.cycle ?? null },
+  ];
+  if (health.consecutiveFailures >= health.fatalThreshold) {
+    health.status = "FATAL";
+    health.fatalAt = new Date().toISOString();
+    log(`MONITOR FATAL: ${health.consecutiveFailures} consecutive failures. Monitor is stalled.`);
+  } else {
+    health.status = "degraded";
+  }
+  await saveMonitorHealth(health);
+  return health;
 }
 
 // ── Main monitor loop ─────────────────────────────────────────────────────────
@@ -114,9 +158,20 @@ export async function startPrimeMonitor({ agentAddress, once = false } = {}) {
       // 4. Save monitor state
       await saveMonitorState(monitorState);
 
+      // 5. Record success
+      await recordMonitorSuccess();
+
       log(`Cycle #${monitorState.cycles} complete.`);
     } catch (err) {
+      err.cycle = monitorState.cycles;
       log(`Cycle #${monitorState.cycles} error: ${err.message}`);
+      const health = await recordMonitorFailure(err);
+      if (health.status === "FATAL") {
+        log(`Monitor entering FATAL state after ${health.consecutiveFailures} consecutive failures. Stopping.`);
+        if (once) return;
+        clearInterval(handle);
+        return;
+      }
     }
   }
 
