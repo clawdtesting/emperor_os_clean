@@ -102,6 +102,9 @@ Scope: `agent/`, `core/`, `mission-control/`, `AgiJobManager/`, `AgiPrimeDiscove
 - Active path follows unsigned-handoff model.
 - Legacy AGIJobManager broadcast helpers are disabled.
 - Core decode/allowlist/simulation checks exist for AGIJobManager completion handoffs.
+- Prepared tx target validation — `normalizePreparedTx()` asserts contract address match before packaging.
+- All boolean gate fields use strict `=== true` checks (no truthy bypasses).
+- Commit gate enforces `fit_evaluation.decision === "PASS"` exactly.
 
 ### Partial today
 - Simulation/freshness requirements are not uniformly mandatory on every Prime tx type.
@@ -113,12 +116,25 @@ Scope: `agent/`, `core/`, `mission-control/`, `AgiJobManager/`, `AgiPrimeDiscove
 ## State / Persistence / Orchestration Audit
 
 ### Strong today
-- Atomic JSON writes for job and procurement state files.
+- Atomic JSON writes for job and procurement state files with unique temp filenames (race-safe).
 - Process lock for singleton runtime.
 - Monitor cursor persistence across restarts.
-- Explicit transition validation in Prime status machine.
+- Explicit transition validation in Prime status machine — all status writes validated.
+- SHA-256 state integrity hash chain on every read/write — tamper detection active.
+- State hash verification at 8 critical tx-building entry points (fail-closed).
+- Append-only LLM call audit log replaces mutable counter.
+- Monitor health tracking with escalating FATAL threshold (default 5 consecutive failures).
+- Archive index written before any state file is pruned — provenance preserved.
 
-### Gaps
+### Resolved gaps (this session)
+- ~~Direct state patch bypasses transition validation~~ → `setProcState()` now validates; `forceSetProcState()` logs overrides.
+- ~~Raw state.json edit undetectable~~ → SHA-256 hash chain + `assertStateIntegrity()` guards.
+- ~~Atomic write collision (.tmp)~~ → Unique temp filenames across 6 files.
+- ~~LLM call budget reset by state tamper~~ → Append-only `llm_audit.json` with hash entries.
+- ~~Monitor swallows failures~~ → Persistent `monitor_health.json` with FATAL escalation.
+- ~~State pruning deletes forensic history~~ → Archive index entries written before deletion.
+
+### Remaining gaps
 - Recovery still includes heuristic corrections in some paths.
 - Exactly-once semantics not enforced uniformly.
 - Unattended multi-day operation remains below strict production confidence threshold.
@@ -212,3 +228,45 @@ Scope: `agent/`, `core/`, `mission-control/`, `AgiJobManager/`, `AgiPrimeDiscove
 - Safe unattended mainnet operation under unsigned-only doctrine: **No-go today**.
 
 Supervised human-in-loop operation remains feasible with explicit operator discipline and tight checklists, but current state should not be treated as fully production-autonomous mainnet ready.
+
+---
+
+## Red-Team Vulnerability Remediation Status
+
+All 10 vulnerabilities from `red_team_attack_paths_2026-04-04.md` have been resolved:
+
+| # | Severity | Issue | Resolution |
+|---|---|---|---|
+| 1 | Critical | Direct state patch bypasses transition validation | `setProcState()` validates transitions; `forceSetProcState()` logs overrides |
+| 2 | Critical | State-machine bypass via raw state.json edit | SHA-256 hash chain + `assertStateIntegrity()` at 8 tx-building entry points |
+| 3 | Critical | Atomic write collision (.tmp) race corruption | Unique temp filenames across 6 files |
+| 4 | Critical | Commit gate accepts failed fit decisions | Enforces `decision === "PASS"` exactly |
+| 5 | High | Reveal gate accepts string truthy | All boolean fields use `=== true` strict checks |
+| 6 | High | Monitor MISSED_WINDOW from stale status | Uses `transitionProcStatus()` with validation |
+| 7 | High | State pruning deletes forensic history | Archive index written before deletion |
+| 8 | High | Unsigned tx trusts MCP-prepared tx target | `normalizePreparedTx()` asserts contract address match |
+| 9 | Medium-High | LLM call budget reset by state tamper | Append-only `llm_audit.json` with hash entries |
+| 10 | Medium | Monitor swallows failures silently | Persistent `monitor_health.json` with FATAL escalation |
+
+**10/10 resolved. 0 open.**
+
+---
+
+## Red-Team Vulnerability Remediation Status
+
+All 10 vulnerabilities from `red_team_attack_paths_2026-04-04.md` have been resolved:
+
+| # | Severity | Issue | Resolution |
+|---|---|---|---|
+| 1 | Critical | Direct state patch bypasses transition validation | `setProcState()` validates transitions; `forceSetProcState()` logs overrides |
+| 2 | Critical | State-machine bypass via raw state.json edit | SHA-256 hash chain + `assertStateIntegrity()` at 8 tx-building entry points |
+| 3 | Critical | Atomic write collision (.tmp) race corruption | Unique temp filenames across 6 files |
+| 4 | Critical | Commit gate accepts failed fit decisions | Enforces `decision === "PASS"` exactly |
+| 5 | High | Reveal gate accepts string truthy | All boolean fields use `=== true` strict checks |
+| 6 | High | Monitor MISSED_WINDOW from stale status | Uses `transitionProcStatus()` with validation |
+| 7 | High | State pruning deletes forensic history | Archive index written before deletion |
+| 8 | High | Unsigned tx trusts MCP-prepared tx target | `normalizePreparedTx()` asserts contract address match |
+| 9 | Medium-High | LLM call budget reset by state tamper | Append-only `llm_audit.json` with hash entries |
+| 10 | Medium | Monitor swallows failures silently | Persistent `monitor_health.json` with FATAL escalation |
+
+**10/10 resolved. 0 open.**
