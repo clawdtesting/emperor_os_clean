@@ -506,12 +506,18 @@ async function handleWaitShortlist(procurementId) {
   const onChainPhase = Number(appView?.applicationPhase ?? 0);
 
   if (appView?.shortlisted || onChainPhase >= 3) {
+    // Require finalized reveal receipt before advancing — chain phase is corroborating signal only.
+    const revealReceipt = await ingestFinalizedOperatorReceipt({ procurementId, action: "revealApplication" }).catch(() => ({ ok: false, reason: "receipt-check-failed" }));
+    if (!revealReceipt.ok) {
+      log(`#${procurementId}: chain shows shortlisted but reveal receipt not finalized (${revealReceipt.reason}) — awaiting receipt`);
+      return false;
+    }
     // Mark shortlisted if not already done.
     if (!state.shortlisted) {
       await setProcState(procurementId, { shortlisted: true });
     }
     await transitionProcStatus(procurementId, PROC_STATUS.SHORTLISTED);
-    log(`#${procurementId}: → SHORTLISTED (on-chain confirmation)`);
+    log(`#${procurementId}: → SHORTLISTED (receipt + on-chain confirmation)`);
     return true;
   }
 
@@ -528,7 +534,6 @@ async function handleWaitShortlist(procurementId) {
 async function handleBuildFinalistTx(procurementId, procStruct) {
   log(`#${procurementId}: building finalist accept tx`);
   const state = await getProcState(procurementId);
-  assertStateIntegrity(state);
   assertStateIntegrity(state);
 
   // Gate check.
@@ -606,22 +611,42 @@ async function handleBuildTrial(procurementId, procStruct, jobSpec) {
   log(`#${procurementId}: building trial artifacts`);
   const state = await getProcState(procurementId);
 
-  // Confirm finalist accept landed on-chain.
+  // Confirm finalist accept landed on-chain — require finalized receipt, not just chain phase.
   if (AGENT_ADDRESS) {
     const appView = await fetchApplicationView(procurementId, AGENT_ADDRESS);
-    if (Number(appView?.applicationPhase ?? 0) < 4) {
-      // Accept not yet on chain; check if we need to advance FINALIST_ACCEPT_SUBMITTED.
-      if (Number(appView?.applicationPhase ?? 0) >= 3 &&
-          state.status === PROC_STATUS.FINALIST_ACCEPT_READY) {
-        await transitionProcStatus(procurementId, PROC_STATUS.FINALIST_ACCEPT_SUBMITTED);
-        log(`#${procurementId}: → FINALIST_ACCEPT_SUBMITTED`);
+    const onChainPhase = Number(appView?.applicationPhase ?? 0);
+
+    if (state.status === PROC_STATUS.FINALIST_ACCEPT_READY && onChainPhase >= 3) {
+      // Chain shows accept landed — but require finalized receipt before advancing.
+      const acceptReceipt = await ingestFinalizedOperatorReceipt({ procurementId, action: "acceptFinalist" }).catch(() => ({ ok: false, reason: "receipt-check-failed" }));
+      if (acceptReceipt.ok) {
+        await transitionProcStatus(procurementId, PROC_STATUS.FINALIST_ACCEPT_SUBMITTED, {
+          acceptReceiptRef: acceptReceipt,
+        });
+        log(`#${procurementId}: → FINALIST_ACCEPT_SUBMITTED (receipt ingested)`);
+      } else {
+        log(`#${procurementId}: chain shows acceptFinalist but receipt not finalized (${acceptReceipt.reason}) — awaiting receipt`);
+        return false;
       }
-      log(`#${procurementId}: FINALIST_ACCEPT_READY — waiting for operator to sign acceptFinalist tx`);
+    }
+
+    if (onChainPhase < 4) {
+      log(`#${procurementId}: FINALIST_ACCEPT — waiting for operator to sign acceptFinalist tx (chain phase=${onChainPhase})`);
       return false;
     }
+
     if (state.status === PROC_STATUS.FINALIST_ACCEPT_SUBMITTED) {
-      await transitionProcStatus(procurementId, PROC_STATUS.TRIAL_IN_PROGRESS);
-      log(`#${procurementId}: → TRIAL_IN_PROGRESS (on-chain accept confirmed)`);
+      // Double-check receipt before advancing to TRIAL_IN_PROGRESS.
+      const acceptReceipt = await ingestFinalizedOperatorReceipt({ procurementId, action: "acceptFinalist" }).catch(() => ({ ok: false, reason: "receipt-check-failed" }));
+      if (acceptReceipt.ok) {
+        await transitionProcStatus(procurementId, PROC_STATUS.TRIAL_IN_PROGRESS, {
+          acceptReceiptRef: acceptReceipt,
+        });
+        log(`#${procurementId}: → TRIAL_IN_PROGRESS (receipt + on-chain confirmed)`);
+      } else {
+        log(`#${procurementId}: chain shows trial open but acceptFinalist receipt not finalized (${acceptReceipt.reason}) — awaiting receipt`);
+        return false;
+      }
     }
   }
 
@@ -1024,6 +1049,9 @@ export async function orchestrateProcurement(procurementId) {
         break;
       case "BUILD_COMPLETION_TX":
         await handleBuildCompletionTx(procurementId);
+        break;
+      case "WAIT_COMPLETION":
+        await handleReceiptDrivenReadyTransitions(procurementId, PROC_STATUS.COMPLETION_READY);
         break;
       case "TERMINAL":
         // Nothing to do — already terminal.
