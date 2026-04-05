@@ -127,8 +127,8 @@ export async function assertRevealGate({ procurementId, procStruct, nowSecs }) {
   await requireJsonField(failures, path.join(appDir, "commitment_material.json"), "commitmentHash", "commitment_material.commitmentHash");
 
   await requireFile(failures, path.join(revealDir, "commitment_verification.json"), "reveal/commitment_verification.json");
-  await requireJsonField(failures, path.join(revealDir, "commitment_verification.json"),
-    "verificationPassed", "commitment_verification.verificationPassed");
+  await requireJsonFieldValue(failures, path.join(revealDir, "commitment_verification.json"),
+    "verificationPassed", true, "commitment_verification.verificationPassed");
 
   await requireFile(failures, path.join(revealDir, "reveal_payload.json"), "reveal/reveal_payload.json");
 
@@ -156,13 +156,13 @@ export async function assertFinalistAcceptGate({ procurementId, procStruct, nowS
   await requireFile(failures, path.join(finalistDir, "stake_preflight.json"),             "finalist/stake_preflight.json");
   await requireFile(failures, path.join(finalistDir, "trial_execution_plan.json"),        "finalist/trial_execution_plan.json");
   await requireFile(failures, path.join(finalistDir, "review_manifest.json"),             "finalist/review_manifest.json");
-  await requireJsonField(failures, path.join(finalistDir, "stake_preflight.json"), "hasSufficientBalance", "stake_preflight.hasSufficientBalance");
-  await requireJsonField(failures, path.join(finalistDir, "stake_preflight.json"), "allowanceSufficient", "stake_preflight.allowanceSufficient");
+  await requireJsonFieldValue(failures, path.join(finalistDir, "stake_preflight.json"), "hasSufficientBalance", true, "stake_preflight.hasSufficientBalance");
+  await requireJsonFieldValue(failures, path.join(finalistDir, "stake_preflight.json"), "allowanceSufficient", true, "stake_preflight.allowanceSufficient");
 
   // Verify shortlisted state
   const stateFile = path.join(CONFIG.WORKSPACE_ROOT, "artifacts", `proc_${id}`, "state.json");
   await requireFile(failures, stateFile, "state.json");
-  await requireJsonField(failures, stateFile, "shortlisted", "state.shortlisted");
+  await requireJsonFieldValue(failures, stateFile, "shortlisted", true, "state.shortlisted");
 
   if (failures.length > 0) throw new GateError("FINALIST_ACCEPT_GATE", failures);
 }
@@ -189,7 +189,7 @@ export async function assertTrialSubmitGate({ procurementId, procStruct, nowSecs
   await requireFile(failures, path.join(trialDir, "review_manifest.json"),            "trial/review_manifest.json");
 
   await requireJsonField(failures, path.join(trialDir, "trial_artifact_manifest.json"),  "trialURI",  "trial_artifact_manifest.trialURI");
-  await requireJsonField(failures, path.join(trialDir, "fetchback_verification.json"),   "verified",  "fetchback_verification.verified");
+  await requireJsonFieldValue(failures, path.join(trialDir, "fetchback_verification.json"),   "verified", true,  "fetchback_verification.verified");
 
   // Confirm fetcback passed
   try {
@@ -216,18 +216,18 @@ export async function assertCompletionGate({ procurementId }) {
   const selectionDir  = path.join(CONFIG.WORKSPACE_ROOT, "artifacts", `proc_${id}`, "selection");
 
   await requireFile(failures, stateFile, "state.json");
-  await requireJsonField(failures, stateFile, "selected",   "state.selected");
+  await requireJsonFieldValue(failures, stateFile, "selected", true,   "state.selected");
   await requireJsonField(failures, stateFile, "linkedJobId", "state.linkedJobId");
 
   await requireFile(failures, path.join(selectionDir, "selected_agent_status.json"), "selection/selected_agent_status.json");
-  await requireJsonField(failures, path.join(selectionDir, "selected_agent_status.json"), "selected", "selected_agent_status.selected");
+  await requireJsonFieldValue(failures, path.join(selectionDir, "selected_agent_status.json"), "selected", true, "selected_agent_status.selected");
 
   await requireFile(failures, path.join(completionDir, "job_completion.json"),           "completion/job_completion.json");
   await requireFile(failures, path.join(completionDir, "publication_record.json"),        "completion/publication_record.json");
   await requireFile(failures, path.join(completionDir, "fetchback_verification.json"),    "completion/fetchback_verification.json");
 
   await requireJsonField(failures, path.join(completionDir, "job_completion.json"),        "completionURI", "job_completion.completionURI");
-  await requireJsonField(failures, path.join(completionDir, "fetchback_verification.json"), "verified",     "fetchback_verification.verified");
+  await requireJsonFieldValue(failures, path.join(completionDir, "fetchback_verification.json"), "verified", true,     "fetchback_verification.verified");
 
   try {
     const fv = await readJson(path.join(completionDir, "fetchback_verification.json"));
