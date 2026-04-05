@@ -54,6 +54,81 @@ export async function getJobState(jobId) {
   return readJson(jobStatePath(jobId), null);
 }
 
+// ── State machine ─────────────────────────────────────────────────────────────
+
+const JOB_STATUS = {
+  QUEUED: "queued",
+  SCORED: "scored",
+  APPLICATION_PENDING_REVIEW: "application_pending_review",
+  ASSIGNED: "assigned",
+  DELIVERABLE_READY: "deliverable_ready",
+  COMPLETION_PENDING_REVIEW: "completion_pending_review",
+  SUBMITTED: "submitted",
+  COMPLETED: "completed",
+  DISPUTED: "disputed",
+  FAILED: "failed",
+  REJECTED: "rejected",
+  EXPIRED: "expired",
+  SKIPPED: "skipped",
+};
+
+const TERMINAL_STATUSES = new Set([
+  JOB_STATUS.COMPLETED,
+  JOB_STATUS.DISPUTED,
+  JOB_STATUS.FAILED,
+  JOB_STATUS.REJECTED,
+  JOB_STATUS.EXPIRED,
+  JOB_STATUS.SKIPPED,
+]);
+
+const VALID_TRANSITIONS = {
+  [JOB_STATUS.QUEUED]: [JOB_STATUS.SCORED, JOB_STATUS.SKIPPED],
+  [JOB_STATUS.SCORED]: [JOB_STATUS.APPLICATION_PENDING_REVIEW, JOB_STATUS.SKIPPED],
+  [JOB_STATUS.APPLICATION_PENDING_REVIEW]: [JOB_STATUS.ASSIGNED, JOB_STATUS.REJECTED, JOB_STATUS.EXPIRED],
+  [JOB_STATUS.ASSIGNED]: [JOB_STATUS.DELIVERABLE_READY, JOB_STATUS.FAILED],
+  [JOB_STATUS.DELIVERABLE_READY]: [JOB_STATUS.COMPLETION_PENDING_REVIEW, JOB_STATUS.FAILED],
+  [JOB_STATUS.COMPLETION_PENDING_REVIEW]: [JOB_STATUS.SUBMITTED, JOB_STATUS.FAILED],
+  [JOB_STATUS.SUBMITTED]: [JOB_STATUS.COMPLETED, JOB_STATUS.DISPUTED, JOB_STATUS.FAILED],
+};
+
+function isValidJobTransition(from, to) {
+  const allowed = VALID_TRANSITIONS[from];
+  if (!allowed) return TERMINAL_STATUSES.has(to);
+  return allowed.includes(to);
+}
+
+export function assertValidJobTransition(from, to) {
+  if (!isValidJobTransition(from, to)) {
+    const allowed = VALID_TRANSITIONS[from] ?? [];
+    throw new Error(
+      `Invalid job state transition: "${from}" → "${to}". ` +
+      `Allowed: ${allowed.length > 0 ? allowed.join(", ") : "none (terminal state)"}`
+    );
+  }
+}
+
+export async function transitionJobStatus(jobId, newStatus, extra = {}) {
+  const current = await getJobState(jobId);
+  if (!current) throw new Error(`job ${jobId} state not found`);
+
+  assertValidJobTransition(current.status, newStatus);
+
+  const now = new Date().toISOString();
+  const next = {
+    ...current,
+    ...extra,
+    status: newStatus,
+    statusHistory: [
+      ...(current.statusHistory ?? []),
+      { status: newStatus, at: now },
+    ],
+    updatedAt: now,
+  };
+
+  await writeJson(jobStatePath(jobId), next);
+  return next;
+}
+
 export async function setJobState(jobId, patch) {
   const now = new Date().toISOString();
   const current =
@@ -81,6 +156,14 @@ export async function setJobState(jobId, patch) {
     },
     updatedAt: now
   };
+
+  if ("status" in patch && patch.status !== current.status) {
+    assertValidJobTransition(current.status, patch.status);
+    next.statusHistory = [
+      ...(current.statusHistory ?? []),
+      { status: patch.status, at: now },
+    ];
+  }
 
   await writeJson(jobStatePath(jobId), next);
   return next;
