@@ -90,8 +90,8 @@ export async function assertCommitGate({ procurementId, procStruct, nowSecs }) {
   // Inspection bundle check
   const inspDir = path.join(CONFIG.WORKSPACE_ROOT, "artifacts", `proc_${id}`, "inspection");
   await requireFile(failures, path.join(inspDir, "fit_evaluation.json"),           "inspection/fit_evaluation.json");
-  await requireJsonField(failures, path.join(inspDir, "fit_evaluation.json"),
-    "decision", "fit_evaluation.decision");
+  await requireJsonFieldValue(failures, path.join(inspDir, "fit_evaluation.json"),
+    "decision", "PASS", "fit_evaluation.decision");
 
   if (failures.length > 0) throw new GateError("COMMIT_GATE", failures);
 }
