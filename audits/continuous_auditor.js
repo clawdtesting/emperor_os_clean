@@ -6,7 +6,7 @@
 // Usage: node audits/continuous_auditor.js [--profile <name>] [--interval <ms>]
 
 import { fileURLToPath } from "url";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync, renameSync } from "fs";
 import { resolve, join } from "path";
 import { runAll } from "./run_all.js";
 import { AUDITS_ROOT } from "./lib/constants.js";
@@ -36,7 +36,7 @@ function parseArgs(argv) {
 
 function loadLastResult() {
   try {
-    return JSON.parse(require("fs").readFileSync(LAST_RESULT_FILE, "utf8"))
+    return JSON.parse(readFileSync(LAST_RESULT_FILE, "utf8"))
   } catch {
     return null
   }
@@ -47,7 +47,7 @@ function saveLastResult(result) {
     mkdirSync(STATE_DIR, { recursive: true })
     const tmp = LAST_RESULT_FILE + ".tmp"
     writeFileSync(tmp, JSON.stringify(result, null, 2))
-    require("fs").renameSync(tmp, LAST_RESULT_FILE)
+    renameSync(tmp, LAST_RESULT_FILE)
   } catch {}
 }
 

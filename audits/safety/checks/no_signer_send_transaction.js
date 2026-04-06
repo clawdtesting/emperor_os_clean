@@ -7,7 +7,7 @@ import { AGENT_ROOT, CORE_ROOT } from "../../lib/constants.js";
 import { searchInFiles } from "../../lib/fs_utils.js";
  
 const CHECK_NAME = "safety.no_signer_send_transaction";
-const JS_FILTER = f => (f.endsWith(".js") || f.endsWith(".ts")) && !f.includes("node_modules") && !f.includes("audits/");
+const JS_FILTER = (name, fullPath) => (name.endsWith(".js") || name.endsWith(".ts")) && !fullPath.includes("node_modules") && !fullPath.includes("audits/");
  
 const PATTERNS = [
   "signer.sendTransaction",
@@ -20,12 +20,13 @@ const PATTERNS = [
 export async function run(ctx) {
   const start = Date.now();
   const hits = [];
- 
+  
   for (const dir of [AGENT_ROOT, CORE_ROOT]) {
     for (const pattern of PATTERNS) {
       let matches;
       try {
-        matches = await searchInFiles(dir, pattern, JS_FILTER);
+        const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        matches = await searchInFiles(dir, regex, JS_FILTER);
       } catch {
         continue;
       }
