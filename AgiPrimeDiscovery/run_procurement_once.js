@@ -1,27 +1,22 @@
-// Single-poll entry point for GitHub Actions.
-// Runs one full procurement cycle (new events → reveals → shortlists → trials),
-// then exits. State is persisted to data/procurement_state.json and committed
-// back to the repo by the workflow.
+// Single-cycle Prime monitor entry point for GitHub Actions.
+// Uses canonical unsigned-handoff runtime (`agent/prime-monitor.js`) and exits.
 
-import { poll, loadState, saveState } from './procurement_agent.js'
-import { mkdirSync, existsSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { ethers } from 'ethers'
+import { startPrimeMonitor } from '../agent/prime-monitor.js'
 
-const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), 'data')
+if (!process.env.ETH_RPC_URL) {
+  console.error('ETH_RPC_URL not set')
+  process.exit(1)
+}
 
-if (!process.env.AGENT_PRIVATE_KEY) { console.error('AGENT_PRIVATE_KEY not set'); process.exit(1) }
-if (!process.env.ETH_RPC_URL)       { console.error('ETH_RPC_URL not set');       process.exit(1) }
-if (!process.env.ANTHROPIC_API_KEY) { console.error('ANTHROPIC_API_KEY not set'); process.exit(1) }
-if (!process.env.PINATA_JWT)        { console.error('PINATA_JWT not set');         process.exit(1) }
-if (!process.env.AGENT_SUBDOMAIN)   { console.error('AGENT_SUBDOMAIN not set');   process.exit(1) }
+const derivedAgentAddress = process.env.AGENT_ADDRESS
+  || (process.env.AGENT_PRIVATE_KEY ? new ethers.Wallet(process.env.AGENT_PRIVATE_KEY).address : '')
 
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+if (!derivedAgentAddress) {
+  console.error('AGENT_ADDRESS or AGENT_PRIVATE_KEY must be set')
+  process.exit(1)
+}
 
-const state = loadState()
-console.log(`[procurement] starting single poll — ${state.pending_reveals.length} pending reveals, ${state.pending_trials.length} pending trials`)
-
-await poll(state)
-saveState(state)
-
-console.log(`[procurement] poll complete — ${state.pending_reveals.length} pending reveals, ${state.pending_trials.length} pending trials`)
+console.log(`[procurement] starting single Prime monitor cycle for agent=${derivedAgentAddress}`)
+await startPrimeMonitor({ agentAddress: derivedAgentAddress, once: true })
+console.log('[procurement] Prime monitor cycle complete')

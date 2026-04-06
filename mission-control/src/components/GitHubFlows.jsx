@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const REPO = 'https://github.com/clawdtesting/emperor_os_clean'
-const GH_API = 'https://api.github.com/repos/clawdtesting/emperor_os_clean/actions'
 
 function timeAgo(iso) {
   if (!iso) return '—'
@@ -55,6 +54,7 @@ function WorkflowCard({ flow }) {
 export function GitHubFlows() {
   const [agent, setAgent] = useState(null)
   const [flows, setFlows] = useState([])
+  const [repo, setRepo] = useState('clawdtesting/emperor_os_clean')
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -67,31 +67,19 @@ export function GitHubFlows() {
     async function loadWorkflows() {
       setError(null)
       try {
-        const res = await fetch(`${GH_API}/workflows?per_page=100`, {
-          headers: { Accept: 'application/vnd.github+json' },
-        })
-        if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`)
+        const res = await fetch('/api/github/workflows')
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body?.error || `GitHub API HTTP ${res.status}`)
+        }
         const data = await res.json()
         const workflows = Array.isArray(data?.workflows) ? data.workflows : []
-
-        const withRuns = await Promise.all(
-          workflows.map(async wf => {
-            try {
-              const rr = await fetch(`${GH_API}/workflows/${wf.id}/runs?per_page=1`, {
-                headers: { Accept: 'application/vnd.github+json' },
-              })
-              if (!rr.ok) return { ...wf, latestRun: null }
-              const runData = await rr.json()
-              return { ...wf, latestRun: runData?.workflow_runs?.[0] || null }
-            } catch {
-              return { ...wf, latestRun: null }
-            }
-          })
-        )
+        const repoName = String(data?.repo || 'clawdtesting/emperor_os_clean').trim()
 
         if (!cancelled) {
-          withRuns.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-          setFlows(withRuns)
+          workflows.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          setFlows(workflows)
+          setRepo(repoName)
         }
       } catch (e) {
         if (!cancelled) setError(e.message || 'Failed loading workflows')
@@ -126,7 +114,7 @@ export function GitHubFlows() {
             <div className="text-amber-400 font-semibold">{Math.max(0, flows.length - activeCount)}</div>
           </div>
           <a
-            href={`${REPO}/actions`}
+            href={`https://github.com/${repo}/actions`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded border border-slate-800 bg-slate-950 p-2 hover:border-slate-600"
