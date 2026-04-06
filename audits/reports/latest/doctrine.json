@@ -1,8 +1,8 @@
 {
   "auditType": "doctrine",
   "status": "warn",
-  "startedAt": "2026-04-06T21:38:01.362Z",
-  "completedAt": "2026-04-06T21:38:01.362Z",
+  "startedAt": "2026-04-06T21:42:19.048Z",
+  "completedAt": "2026-04-06T21:42:19.048Z",
   "durationMs": 0,
   "summary": {
     "pass": 3,
@@ -23,21 +23,21 @@
       "status": "warn",
       "details": "LLM audit log not found — cannot verify pre-assignment calls",
       "severity": "warn",
-      "durationMs": null
+      "durationMs": 1
     },
     {
       "name": "doctrine.unsigned_handoff_only",
       "status": "pass",
       "details": "All 0 tx package(s) are unsigned — handoff boundary intact",
       "severity": "pass",
-      "durationMs": 1
+      "durationMs": null
     },
     {
       "name": "doctrine.deterministic_scoring_required",
       "status": "pass",
       "details": "No nondeterministic constructs detected in agent/core source",
       "severity": "pass",
-      "durationMs": 78
+      "durationMs": 79
     },
     {
       "name": "doctrine.workspace_scope_only",
