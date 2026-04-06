@@ -1,8 +1,15 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DEFAULT_WORKSPACE_ROOT = path.resolve(__dirname, "..");
+
 // /home/emperor/.openclaw/workspace/agent/config.js
 export const CONFIG = {
   WORKSPACE_ROOT:
     process.env.WORKSPACE_ROOT ??
-    "/home/emperor/.openclaw/workspace",
+    DEFAULT_WORKSPACE_ROOT,
 
   AGI_ALPHA_MCP: process.env.AGI_ALPHA_MCP ?? "",
   AGENT_ADDRESS: (process.env.AGENT_ADDRESS ?? "").toLowerCase(),
