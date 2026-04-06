@@ -1,10 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import { spawn } from 'child_process'
-import { readdirSync, readFileSync, existsSync } from 'fs'
-import { dirname, resolve } from 'path'
+import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, writeFileSync, appendFileSync, renameSync, unlinkSync } from 'fs'
+import { dirname, resolve, join } from 'path'
 import { fileURLToPath } from 'url'
 import { createServer } from 'http'
+import { tmpdir } from 'os'
 
 const app = express()
 app.use(cors())
@@ -12,8 +13,256 @@ app.use(express.json())
 
 const __dirname     = dirname(fileURLToPath(import.meta.url))
 const MCP_ENDPOINT  = process.env.AGI_ALPHA_MCP || 'https://agialpha.com/api/mcp'
-const PIPELINES_DIR = '/home/ubuntu/.openclaw/workspace/pipelines'
+const WORKSPACE_ROOT = resolve(__dirname, '..')
+const PIPELINES_DIR = join(WORKSPACE_ROOT, 'pipelines')
 const TESTS_DIR     = resolve(__dirname, '..', 'tests')
+const ARTIFACTS_DIR = join(WORKSPACE_ROOT, 'artifacts')
+const AGENT_STATE_DIR = join(WORKSPACE_ROOT, 'agent', 'state', 'jobs')
+const PROC_ARTIFACTS_DIR = join(WORKSPACE_ROOT, 'agent', 'artifacts')
+const NOTIF_STATE_DIR = resolve(__dirname, 'state')
+const NOTIF_STATE_FILE = join(NOTIF_STATE_DIR, 'notifications.json')
+const NOTIF_LOG_FILE = join(NOTIF_STATE_DIR, 'actions.log.jsonl')
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+const MC_URL = process.env.MISSION_CONTROL_URL || 'http://100.104.194.128:3000'
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN
+const GH_REPO = process.env.GH_REPO || 'clawdtesting/emperor_os_clean'
+
+mkdirSync(NOTIF_STATE_DIR, { recursive: true })
+
+// ── Notification / Action Engine ──────────────────────────────────────────────
+
+function readJsonSafe(file, fallback) {
+  try { return JSON.parse(readFileSync(file, 'utf8')) }
+  catch { return fallback }
+}
+
+function atomicWriteJson(file, data) {
+  const tmp = file + '.tmp'
+  writeFileSync(tmp, JSON.stringify(data, null, 2))
+  renameSync(tmp, file)
+}
+
+function loadNotifState() {
+  return readJsonSafe(NOTIF_STATE_FILE, {
+    lastNotified: {},
+    actions: [],
+    dismissed: {},
+    lastScanAt: null,
+  })
+}
+
+function saveNotifState(state) {
+  state.lastScanAt = new Date().toISOString()
+  const tmp = NOTIF_STATE_FILE + '.tmp'
+  writeFileSync(tmp, JSON.stringify(state, null, 2))
+  renameSync(tmp, NOTIF_STATE_FILE)
+}
+
+function appendActionLog(entry) {
+  appendFileSync(NOTIF_LOG_FILE, JSON.stringify(entry) + '\n')
+}
+
+function urgencyLabel(secsUntilDeadline) {
+  if (secsUntilDeadline == null || secsUntilDeadline < 0) return { level: 'info', label: 'INFO', color: 'text-slate-400' }
+  if (secsUntilDeadline < 3600) return { level: 'urgent', label: 'URGENT', color: 'text-red-400' }
+  if (secsUntilDeadline < 4 * 3600) return { level: 'warning', label: 'WARNING', color: 'text-amber-400' }
+  return { level: 'info', label: 'INFO', color: 'text-slate-400' }
+}
+
+function formatDuration(secs) {
+  if (secs == null) return '—'
+  const s = Math.abs(secs)
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`
+}
+
+function timeAgo(iso) {
+  if (!iso) return '—'
+  const mins = Math.round((Date.now() - Date.parse(iso)) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.round(hrs / 24)}d ago`
+}
+
+async function sendTelegramMessage(text) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return false
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+    const ok = res.ok
+    if (!ok) console.error('[telegram] send failed:', res.status, await res.text().catch(() => ''))
+    return ok
+  } catch (err) {
+    console.error('[telegram] error:', err.message)
+    return false
+  }
+}
+
+function buildTelegramMessage(action) {
+  const urgency = urgencyLabel(action.secsUntilDeadline)
+  const icon = urgency.level === 'urgent' ? '\uD83D\uDD34' : urgency.level === 'warning' ? '\uD83D\uDFE1' : '\u2699\uFE0F'
+  const deadlineText = action.secsUntilDeadline != null
+    ? (action.secsUntilDeadline < 0 ? `Deadline passed ${formatDuration(action.secsUntilDeadline)} ago` : `${formatDuration(action.secsUntilDeadline)} remaining`)
+    : ''
+
+  const sourceLabel = action.sourceType === 'procurement' ? `Proc #${action.sourceId}` : `Job #${action.sourceId}`
+  const deepLink = action.sourceType === 'procurement'
+    ? `${MC_URL}/?tab=ops&proc=${action.sourceId}`
+    : `${MC_URL}/?tab=ops`
+
+  let msg = `${icon} <b>${sourceLabel}</b> \u2014 ${action.action}\n`
+  msg += `${action.summary}\n`
+  if (deadlineText) msg += `\u23F1 ${deadlineText}\n`
+  if (action.blockedReason) msg += `\u26A0\uFE0F ${action.blockedReason}\n`
+  msg += `\nReview \u2192 ${deepLink}`
+  return msg
+}
+
+async function scanProcurementActions() {
+  const actions = []
+  if (!existsSync(PROC_ARTIFACTS_DIR)) return actions
+
+  const dirs = readdirSync(PROC_ARTIFACTS_DIR).filter(d => d.startsWith('proc_') && statSync(join(PROC_ARTIFACTS_DIR, d)).isDirectory())
+
+  for (const dir of dirs) {
+    const procId = dir.replace('proc_', '')
+    const statePath = join(PROC_ARTIFACTS_DIR, dir, 'state.json')
+    const nextActionPath = join(PROC_ARTIFACTS_DIR, dir, 'next_action.json')
+
+    const state = readJsonSafe(statePath, null)
+    const nextAction = readJsonSafe(nextActionPath, null)
+
+    if (!state && !nextAction) continue
+
+    const action = nextAction?.action || 'UNKNOWN'
+    const status = state?.status || 'unknown'
+    const secsUntilDeadline = nextAction?.secsUntilDeadline
+    const blockedReason = nextAction?.blockedReason
+    const summary = nextAction?.summary || status
+
+    actions.push({
+      sourceType: 'procurement',
+      sourceId: procId,
+      status,
+      action,
+      summary,
+      secsUntilDeadline,
+      blockedReason,
+      urgency: urgencyLabel(secsUntilDeadline),
+      updatedAt: state?.lastChainSync || nextAction?.generatedAt || null,
+    })
+  }
+
+  return actions
+}
+
+async function scanJobActions() {
+  const actions = []
+  if (!existsSync(AGENT_STATE_DIR)) return actions
+
+  const files = readdirSync(AGENT_STATE_DIR).filter(f => f.endsWith('.json'))
+
+  for (const file of files) {
+    const state = readJsonSafe(join(AGENT_STATE_DIR, file), null)
+    if (!state) continue
+
+    const jobId = state.jobId || file.replace('.json', '')
+    const status = state.status || 'unknown'
+
+    const needsAttention = ['assigned', 'in_progress', 'needs_review', 'completion_ready'].includes(status.toLowerCase())
+
+    if (!needsAttention) continue
+
+    actions.push({
+      sourceType: 'job',
+      sourceId: jobId,
+      status,
+      action: status.toUpperCase(),
+      summary: `Job ${jobId} is ${status}`,
+      secsUntilDeadline: state.deadlineSecs || null,
+      blockedReason: null,
+      urgency: urgencyLabel(state.deadlineSecs),
+      updatedAt: state.updatedAt || state.lastSync || null,
+    })
+  }
+
+  return actions
+}
+
+async function scanAndNotify() {
+  const state = loadNotifState()
+  const now = new Date().toISOString()
+
+  try {
+    const [procActions, jobActions] = await Promise.all([
+      scanProcurementActions(),
+      scanJobActions(),
+    ])
+
+    const allActions = [...procActions, ...jobActions]
+    let newActions = []
+
+    for (const action of allActions) {
+      const key = `${action.sourceType}:${action.sourceId}`
+      const lastNotified = state.lastNotified[key]
+
+      if (!lastNotified || lastNotified.status !== action.status || lastNotified.action !== action.action) {
+        const actionId = `${key}:${action.status}:${Date.now()}`
+        const entry = {
+          id: actionId,
+          key,
+          sourceType: action.sourceType,
+          sourceId: action.sourceId,
+          previousStatus: lastNotified?.status || null,
+          newStatus: action.status,
+          action: action.action,
+          summary: action.summary,
+          secsUntilDeadline: action.secsUntilDeadline,
+          blockedReason: action.blockedReason,
+          urgency: action.urgency.level,
+          createdAt: now,
+          dismissed: false,
+        }
+
+        state.actions.push(entry)
+        state.lastNotified[key] = { status: action.status, action: action.action, at: now }
+        newActions.push(entry)
+        appendActionLog(entry)
+
+        const tgMsg = buildTelegramMessage(action)
+        const sent = await sendTelegramMessage(tgMsg)
+        console.log(`[notify] ${action.sourceType} #${action.sourceId}: ${action.status} \u2192 ${action.action} (telegram: ${sent ? 'sent' : 'failed'})`)
+      }
+    }
+
+    if (newActions.length > 0) {
+      const msg = `data: ${JSON.stringify({ type: 'actions', actions: newActions })}\n\n`
+      sseClients.forEach(c => c.write(msg))
+    }
+
+    if (state.actions.length > 500) {
+      state.actions = state.actions.slice(-500)
+    }
+
+    saveNotifState(state)
+  } catch (err) {
+    console.error('[notify] scan error:', err.message)
+  }
+}
 
 async function callMcp(tool, args = {}) {
   const res = await fetch(MCP_ENDPOINT, {
@@ -244,6 +493,7 @@ app.get('/api/jobs', async (req, res) => {
 // ── Pipelines ─────────────────────────────────────────────────────────────────
 app.get('/api/pipelines', (req, res) => {
   try {
+    if (!existsSync(PIPELINES_DIR)) return res.json([])
     const files = readdirSync(PIPELINES_DIR).filter(f => f.endsWith('.yaml') || f.endsWith('.lobster'))
     res.json(files.map(name => ({
       name,
@@ -432,6 +682,340 @@ app.post('/api/test-run', (req, res) => {
   proc.on('close', code => { send('done',  { code, ts: new Date().toISOString() }); res.end() })
   proc.on('error', err  => { send('error', { message: err.message });               res.end() })
   req.on('close',  ()   => proc.kill())
+})
+
+// ── Intake pipeline runner (for real MCP jobs) ───────────────────────────────
+app.post('/api/intake-run', (req, res) => {
+  const { jobId, job } = req.body || {}
+  if (!job || typeof job !== 'object') {
+    return res.status(400).json({ error: 'job payload required' })
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.flushHeaders()
+
+  const send = (type, data) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`)
+
+  const safeJobId = String(jobId || job.jobId || Date.now()).replace(/[^a-z0-9_-]/gi, '_')
+  const tmpFile = join(tmpdir(), `intake-job-${safeJobId}.json`)
+
+  // Find intake pipeline
+  let pipelinePath = null
+  if (existsSync(PIPELINES_DIR)) {
+    const files = readdirSync(PIPELINES_DIR).filter(f => f.endsWith('.yaml') || f.endsWith('.lobster'))
+    const intakeFile = files.find(f => f.toLowerCase().includes('intake')) || files[0] || null
+    if (intakeFile) pipelinePath = join(PIPELINES_DIR, intakeFile)
+  }
+
+  if (!pipelinePath) {
+    send('error', { message: 'No pipeline found in pipelines/. Add intake.lobster.yaml to enable autonomous intake.' })
+    res.end()
+    return
+  }
+
+  try {
+    writeFileSync(tmpFile, JSON.stringify(job, null, 2))
+  } catch (e) {
+    send('error', { message: `Failed to write tmp job spec: ${e.message}` })
+    res.end()
+    return
+  }
+
+  send('start', { pipeline: pipelinePath, jobId: safeJobId, ts: new Date().toISOString() })
+
+  const proc = spawn('lobster', ['run', pipelinePath, '--json-input', tmpFile], {
+    cwd: WORKSPACE_ROOT,
+    env: { ...process.env },
+  })
+
+  let buf = ''
+
+  proc.stdout.on('data', chunk => {
+    buf += chunk.toString()
+    const lines = buf.split('\n')
+    buf = lines.pop()
+    for (const line of lines) {
+      if (!line.trim()) continue
+      try {
+        const p = JSON.parse(line)
+        send('step', { step: p.step || p.id || '?', tool: p.tool || p.command || '?', status: p.status || 'ok', result: p.result || p.output || '' })
+      } catch {
+        send('stream', { text: line, ts: new Date().toISOString() })
+      }
+    }
+  })
+
+  proc.stderr.on('data', chunk => {
+    chunk.toString().split('\n').filter(Boolean).forEach(line =>
+      send('stream', { text: line, level: 'stderr', ts: new Date().toISOString() })
+    )
+  })
+
+  proc.on('error', err => {
+    const msg = err.code === 'ENOENT'
+      ? 'lobster not found in PATH. Install lobster to enable pipeline execution.'
+      : err.message
+    send('error', { message: msg })
+    try { unlinkSync(tmpFile) } catch {}
+    res.end()
+  })
+
+  proc.on('close', code => {
+    send('done', { code, ts: new Date().toISOString() })
+    try { unlinkSync(tmpFile) } catch {}
+    res.end()
+  })
+
+  req.on('close', () => {
+    proc.kill()
+    try { unlinkSync(tmpFile) } catch {}
+  })
+})
+
+// ── Operations Lane ───────────────────────────────────────────────────────────
+
+function classifyLifecycleStage(status) {
+  const s = (status || '').toLowerCase()
+  if (['commit_ready', 'reveal_ready', 'finalist_accept_ready', 'trial_ready', 'completion_ready', 'ready_for_signature'].includes(s)) return 'ready_for_signature'
+  if (['awaiting_finalization', 'in_progress', 'assigned'].includes(s)) return 'awaiting_finalization'
+  if (['completed', 'done', 'finalized', 'selected'].includes(s)) return 'finalized'
+  return 'idle'
+}
+
+app.get('/api/operations-lane', async (req, res) => {
+  try {
+    const procurements = []
+    if (existsSync(PROC_ARTIFACTS_DIR)) {
+      const dirs = readdirSync(PROC_ARTIFACTS_DIR).filter(d => d.startsWith('proc_') && statSync(join(PROC_ARTIFACTS_DIR, d)).isDirectory())
+      for (const dir of dirs) {
+        const state = readJsonSafe(join(PROC_ARTIFACTS_DIR, dir, 'state.json'), null)
+        const nextAction = readJsonSafe(join(PROC_ARTIFACTS_DIR, dir, 'next_action.json'), null)
+        if (!state) continue
+        const procId = dir.replace('proc_', '')
+        procurements.push({
+          procurementId: procId,
+          status: state.status || 'unknown',
+          phase: state.phase || '',
+          employer: state.employer || null,
+          linkedJobId: state.linkedJobId || null,
+          nextAction: nextAction?.action || null,
+          txPackages: (state.txPackages || []).map(p => ({
+            file: p.file || 'unknown',
+            ageMin: p.ageMin ?? 0,
+            expired: p.expired ?? false,
+            fresh: p.fresh ?? false,
+          })),
+          receipts: (state.receipts || []).map(r => ({
+            action: r.action || '',
+            txHash: r.txHash || '',
+            status: r.status || '',
+            finalizedAt: r.finalizedAt || null,
+          })),
+          deadlines: state.deadlines || null,
+          lifecycleStage: classifyLifecycleStage(state.status),
+          updatedAt: state.lastChainSync || state.updatedAt || null,
+        })
+      }
+    }
+
+    const jobs = []
+    if (existsSync(AGENT_STATE_DIR)) {
+      const files = readdirSync(AGENT_STATE_DIR).filter(f => f.endsWith('.json'))
+      for (const file of files) {
+        const state = readJsonSafe(join(AGENT_STATE_DIR, file), null)
+        if (!state) continue
+        const jobId = state.jobId || file.replace('.json', '')
+        jobs.push({
+          jobId,
+          status: state.status || 'unknown',
+          txPackages: (state.txPackages || []).map(p => ({
+            file: p.file || 'unknown',
+            ageMin: p.ageMin ?? 0,
+            expired: p.expired ?? false,
+            fresh: p.fresh ?? false,
+          })),
+          receipts: (state.receipts || []).map(r => ({
+            action: r.action || '',
+            txHash: r.txHash || '',
+            status: r.status || '',
+            finalizedAt: r.finalizedAt || null,
+          })),
+          lifecycleStage: classifyLifecycleStage(state.status),
+          updatedAt: state.updatedAt || state.lastSync || null,
+        })
+      }
+    }
+
+    res.json({
+      procurements,
+      jobs,
+      scannedAt: new Date().toISOString(),
+    })
+  } catch (e) {
+    console.error('[ops-lane] error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── Actions / Notifications API ───────────────────────────────────────────────
+
+app.get('/api/actions', (req, res) => {
+  const state = loadNotifState()
+  const filter = req.query.filter
+  let actions = state.actions
+
+  if (filter === 'urgent') {
+    actions = actions.filter(a => a.urgency === 'urgent' && !state.dismissed[a.id])
+  } else if (filter === 'pending') {
+    actions = actions.filter(a => !state.dismissed[a.id])
+  } else if (filter === 'dismissed') {
+    actions = actions.filter(a => state.dismissed[a.id])
+  } else {
+    actions = actions.filter(a => !state.dismissed[a.id])
+  }
+
+  res.json({
+    actions: actions.reverse(),
+    total: state.actions.length,
+    dismissed: Object.keys(state.dismissed).length,
+    lastScanAt: state.lastScanAt,
+  })
+})
+
+app.post('/api/actions/:id/dismiss', (req, res) => {
+  const state = loadNotifState()
+  const id = req.params.id
+  if (!state.actions.find(a => a.id === id)) {
+    return res.status(404).json({ error: 'action not found' })
+  }
+  state.dismissed[id] = { dismissedAt: new Date().toISOString() }
+  saveNotifState(state)
+  res.json({ ok: true, dismissed: id })
+})
+
+// ── Start notification scanner (after sseClients is available) ────────────────
+const SCAN_INTERVAL_MS = 30_000
+console.log('[notify] starting scanner (interval: ' + (SCAN_INTERVAL_MS / 1000) + 's)')
+scanAndNotify()
+setInterval(scanAndNotify, SCAN_INTERVAL_MS)
+
+// ── GitHub API proxy helpers ──────────────────────────────────────────────────
+
+function ghHeaders(extra = {}) {
+  const h = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...extra,
+  }
+  if (GITHUB_TOKEN) h.Authorization = `Bearer ${GITHUB_TOKEN}`
+  return h
+}
+
+async function ghGet(path) {
+  const r = await fetch(`https://api.github.com${path}`, {
+    headers: ghHeaders(),
+    signal: AbortSignal.timeout(12000),
+  })
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '')
+    const err = new Error(`GitHub API ${r.status}`)
+    err.status = r.status
+    err.body = txt.slice(0, 400)
+    err.noToken = !GITHUB_TOKEN
+    throw err
+  }
+  return r.json()
+}
+
+function ghErrResponse(e) {
+  if (e.status === 401 || e.status === 403) {
+    return {
+      error: e.noToken
+        ? 'GitHub token not configured — set GITHUB_TOKEN in server env'
+        : 'GitHub token rejected (expired or missing scope) — regenerate with workflow scope',
+      noToken: e.noToken,
+      needsToken: true,
+      status: e.status,
+    }
+  }
+  return { error: e.body || e.message }
+}
+
+// ── GitHub Actions — full workflow list with latest run per workflow ───────────
+app.get('/api/github/workflows', async (req, res) => {
+  try {
+    const data = await ghGet(`/repos/${GH_REPO}/actions/workflows?per_page=100`)
+    const workflows = Array.isArray(data?.workflows) ? data.workflows : []
+
+    const withRuns = await Promise.all(
+      workflows.map(async wf => {
+        try {
+          const runData = await ghGet(`/repos/${GH_REPO}/actions/workflows/${wf.id}/runs?per_page=1`)
+          return { ...wf, latestRun: runData?.workflow_runs?.[0] || null }
+        } catch {
+          return { ...wf, latestRun: null }
+        }
+      })
+    )
+
+    res.json({ workflows: withRuns, fetchedAt: new Date().toISOString(), hasToken: Boolean(GITHUB_TOKEN) })
+  } catch (e) {
+    const status = e.status === 401 || e.status === 403 ? e.status : 500
+    res.status(status).json(ghErrResponse(e))
+  }
+})
+
+// ── GitHub Actions — recent runs for a specific workflow ──────────────────────
+app.get('/api/workflow-runs/:workflow', async (req, res) => {
+  const perPage = Math.min(Number(req.query.per_page) || 10, 30)
+  try {
+    const data = await ghGet(
+      `/repos/${GH_REPO}/actions/workflows/${encodeURIComponent(req.params.workflow)}/runs?per_page=${perPage}`
+    )
+    res.json(data)
+  } catch (e) {
+    const status = e.status === 401 || e.status === 403 ? e.status : 500
+    res.status(status).json(ghErrResponse(e))
+  }
+})
+
+// ── GitHub Actions — workflow dispatch ───────────────────────────────────────
+app.post('/api/workflow-dispatch', async (req, res) => {
+  const { workflow, ref = 'main', inputs = {} } = req.body || {}
+  if (!workflow) return res.status(400).json({ error: 'workflow required' })
+  if (!GITHUB_TOKEN) {
+    return res.status(401).json({
+      error: 'GitHub token not configured — set GITHUB_TOKEN in server env',
+      noToken: true,
+      needsToken: true,
+    })
+  }
+
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${GH_REPO}/actions/workflows/${workflow}/dispatches`,
+      {
+        method: 'POST',
+        headers: ghHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ ref, inputs }),
+        signal: AbortSignal.timeout(10000),
+      }
+    )
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '')
+      const err = new Error(`GitHub API ${r.status}`)
+      err.status = r.status
+      err.body = txt.slice(0, 400)
+      err.noToken = false
+      return res.status(r.status).json(ghErrResponse(err))
+    }
+    res.json({ ok: true, workflow, ref, inputs })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ── Serve React frontend (production build) ───────────────────────────────────
