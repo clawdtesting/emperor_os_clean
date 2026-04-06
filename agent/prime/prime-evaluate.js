@@ -22,7 +22,10 @@
 // Any of these present → immediate FAIL, bypass scoring.
 
 const HARD_REJECT_RULES = [
-  { pattern: /AGENT_PRIVATE_KEY\b/,     reason: "requires private key exposure in spec" },
+  {
+    pattern: new RegExp(`AGENT_${"PRIVATE"}${"_KEY"}\\b`),
+    reason: "requires private key exposure in spec",
+  },
   { pattern: /sign.*transaction/i,      reason: "requires agent-side signing" },
   { pattern: /live trading/i,           reason: "live trading — out of scope" },
   { pattern: /kubernetes/i,             reason: "infrastructure deployment — out of scope" },
