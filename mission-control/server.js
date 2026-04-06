@@ -1,10 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import { spawn } from 'child_process'
-import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, writeFileSync, appendFileSync, renameSync } from 'fs'
+import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, writeFileSync, appendFileSync, renameSync, unlinkSync } from 'fs'
 import { dirname, resolve, join } from 'path'
 import { fileURLToPath } from 'url'
 import { createServer } from 'http'
+import { tmpdir } from 'os'
 
 const app = express()
 app.use(cors())
@@ -490,6 +491,7 @@ app.get('/api/jobs', async (req, res) => {
 // ── Pipelines ─────────────────────────────────────────────────────────────────
 app.get('/api/pipelines', (req, res) => {
   try {
+    if (!existsSync(PIPELINES_DIR)) return res.json([])
     const files = readdirSync(PIPELINES_DIR).filter(f => f.endsWith('.yaml') || f.endsWith('.lobster'))
     res.json(files.map(name => ({
       name,
@@ -678,6 +680,97 @@ app.post('/api/test-run', (req, res) => {
   proc.on('close', code => { send('done',  { code, ts: new Date().toISOString() }); res.end() })
   proc.on('error', err  => { send('error', { message: err.message });               res.end() })
   req.on('close',  ()   => proc.kill())
+})
+
+// ── Intake pipeline runner (for real MCP jobs) ───────────────────────────────
+app.post('/api/intake-run', (req, res) => {
+  const { jobId, job } = req.body || {}
+  if (!job || typeof job !== 'object') {
+    return res.status(400).json({ error: 'job payload required' })
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.flushHeaders()
+
+  const send = (type, data) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`)
+
+  const safeJobId = String(jobId || job.jobId || Date.now()).replace(/[^a-z0-9_-]/gi, '_')
+  const tmpFile = join(tmpdir(), `intake-job-${safeJobId}.json`)
+
+  // Find intake pipeline
+  let pipelinePath = null
+  if (existsSync(PIPELINES_DIR)) {
+    const files = readdirSync(PIPELINES_DIR).filter(f => f.endsWith('.yaml') || f.endsWith('.lobster'))
+    const intakeFile = files.find(f => f.toLowerCase().includes('intake')) || files[0] || null
+    if (intakeFile) pipelinePath = join(PIPELINES_DIR, intakeFile)
+  }
+
+  if (!pipelinePath) {
+    send('error', { message: 'No pipeline found in pipelines/. Add intake.lobster.yaml to enable autonomous intake.' })
+    res.end()
+    return
+  }
+
+  try {
+    writeFileSync(tmpFile, JSON.stringify(job, null, 2))
+  } catch (e) {
+    send('error', { message: `Failed to write tmp job spec: ${e.message}` })
+    res.end()
+    return
+  }
+
+  send('start', { pipeline: pipelinePath, jobId: safeJobId, ts: new Date().toISOString() })
+
+  const proc = spawn('lobster', ['run', pipelinePath, '--json-input', tmpFile], {
+    cwd: WORKSPACE_ROOT,
+    env: { ...process.env },
+  })
+
+  let buf = ''
+
+  proc.stdout.on('data', chunk => {
+    buf += chunk.toString()
+    const lines = buf.split('\n')
+    buf = lines.pop()
+    for (const line of lines) {
+      if (!line.trim()) continue
+      try {
+        const p = JSON.parse(line)
+        send('step', { step: p.step || p.id || '?', tool: p.tool || p.command || '?', status: p.status || 'ok', result: p.result || p.output || '' })
+      } catch {
+        send('stream', { text: line, ts: new Date().toISOString() })
+      }
+    }
+  })
+
+  proc.stderr.on('data', chunk => {
+    chunk.toString().split('\n').filter(Boolean).forEach(line =>
+      send('stream', { text: line, level: 'stderr', ts: new Date().toISOString() })
+    )
+  })
+
+  proc.on('error', err => {
+    const msg = err.code === 'ENOENT'
+      ? 'lobster not found in PATH. Install lobster to enable pipeline execution.'
+      : err.message
+    send('error', { message: msg })
+    try { unlinkSync(tmpFile) } catch {}
+    res.end()
+  })
+
+  proc.on('close', code => {
+    send('done', { code, ts: new Date().toISOString() })
+    try { unlinkSync(tmpFile) } catch {}
+    res.end()
+  })
+
+  req.on('close', () => {
+    proc.kill()
+    try { unlinkSync(tmpFile) } catch {}
+  })
 })
 
 // ── Operations Lane ───────────────────────────────────────────────────────────
