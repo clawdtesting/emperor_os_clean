@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-const REPO     = 'https://github.com/clawdtesting/emperor_os_clean'
-const AUDIT_WF = 'audit.yml'
-const AUDIT_PROFILES = ['fast', 'full', 'runtime']
+const REPO = 'https://github.com/clawdtesting/emperor_os_clean'
 
 function timeAgo(iso) {
   if (!iso) return '—'
@@ -263,24 +261,37 @@ function WorkflowCard({ flow }) {
 
 // ── Main GitHubFlows tab ──────────────────────────────────────────────────────
 export function GitHubFlows() {
-  const [agent, setAgent]       = useState(null)
-  const [flows, setFlows]       = useState([])
-  const [error, setError]       = useState(null)
-  const [needsToken, setNeedsToken] = useState(false)
-  const [loading, setLoading]   = useState(true)
+  const [agent, setAgent] = useState(null)
+  const [flows, setFlows] = useState([])
+  const [repo, setRepo] = useState('clawdtesting/emperor_os_clean')
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     fetch('/api/agent').then(r => r.json()).then(setAgent).catch(() => {})
   }, [])
 
-  async function loadWorkflows() {
-    try {
-      const r   = await fetch('/api/github/workflows')
-      const data = await r.json()
-      if (!r.ok) {
-        if (data.needsToken) { setNeedsToken(true); setError(null) }
-        else setError(data.error || `HTTP ${r.status}`)
-        return
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadWorkflows() {
+      setError(null)
+      try {
+        const res = await fetch('/api/github/workflows')
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body?.error || `GitHub API HTTP ${res.status}`)
+        }
+        const data = await res.json()
+        const workflows = Array.isArray(data?.workflows) ? data.workflows : []
+        const repoName = String(data?.repo || 'clawdtesting/emperor_os_clean').trim()
+
+        if (!cancelled) {
+          workflows.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          setFlows(workflows)
+          setRepo(repoName)
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message || 'Failed loading workflows')
       }
       setFlows(data.workflows || [])
       setNeedsToken(false)
@@ -325,8 +336,12 @@ export function GitHubFlows() {
             <div className="text-slate-600 mb-1">Disabled</div>
             <div className="text-amber-400 font-semibold">{loading ? '—' : Math.max(0, flows.length - activeCount)}</div>
           </div>
-          <a href={`${REPO}/actions`} target="_blank" rel="noopener noreferrer"
-             className="rounded border border-slate-800 bg-slate-950 p-2 hover:border-slate-600">
+          <a
+            href={`https://github.com/${repo}/actions`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border border-slate-800 bg-slate-950 p-2 hover:border-slate-600"
+          >
             <div className="text-slate-600 mb-1">Actions</div>
             <div className="text-blue-400 font-semibold">open ↗</div>
           </a>
