@@ -293,15 +293,6 @@ export function GitHubFlows() {
       } catch (e) {
         if (!cancelled) setError(e.message || 'Failed loading workflows')
       }
-      setFlows(data.workflows || [])
-      setNeedsToken(false)
-      setError(null)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
     loadWorkflows()
