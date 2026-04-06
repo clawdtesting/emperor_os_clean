@@ -1,16 +1,16 @@
 # doctrine Audit Report
 
-🚨 **Status: CRITICAL**
+⚠️ **Status: WARN**
 
 | Metric | Value |
 |---|---|
-| Started | 2026-04-06T14:23:35.619Z |
-| Completed | 2026-04-06T14:23:35.619Z |
+| Started | 2026-04-06T20:52:24.513Z |
+| Completed | 2026-04-06T20:52:24.513Z |
 | Duration | 0ms |
-| Pass | 1 |
+| Pass | 3 |
 | Warn | 2 |
 | Fail | 0 |
-| Critical | 2 |
+| Critical | 0 |
 
 ## Checks
 
@@ -21,17 +21,18 @@ LLM audit log not found — cannot verify call budget
 ### ⚠️ doctrine.no_llm_before_assignment — warn
 
 LLM audit log not found — cannot verify pre-assignment calls
+_Duration: 1ms_
 
 ### ✅ doctrine.unsigned_handoff_only — pass
 
 All 0 tx package(s) are unsigned — handoff boundary intact
 
-### 🚨 doctrine.deterministic_scoring_required — critical
+### ✅ doctrine.deterministic_scoring_required — pass
 
-39 nondeterministic construct(s) found in scoring paths: /home/emperor/.openclaw/workspace/agent/artifact-manager.js:46 — const tmp = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;; /home/emperor/.openclaw/workspace/agent/artifact-manager.js:52 — const tmp = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;; /home/emperor/.openclaw/workspace/agent/prime-artifact-builder.js:21 — const tmp = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
-_Duration: 1.2s_
+No nondeterministic constructs detected in agent/core source
+_Duration: 77ms_
 
-### 🚨 doctrine.workspace_scope_only — critical
+### ✅ doctrine.workspace_scope_only — pass
 
-15 out-of-scope path reference(s) detected: /home/emperor/.openclaw/workspace/core/config.js:5 — "/home/ubuntu/emperor_OS/.openclaw/workspace",; /home/emperor/.openclaw/workspace/core/node_modules/@types/node/path.d.ts:29 — * The full directory path such as '/home/user/dir' or 'c:\path\dir'; /home/emperor/.openclaw/workspace/core/node_modules/@types/node/path.d.ts:51 — * The full directory path such as '/home/user/dir' or 'c:\path\dir'
-_Duration: 2.9s_
+No out-of-scope path references detected — workspace boundary intact
+_Duration: 183ms_

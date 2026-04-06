@@ -1,33 +1,33 @@
 # static Audit Report
 
-🚨 **Status: CRITICAL**
+✅ **Status: PASS**
 
 | Metric | Value |
 |---|---|
-| Started | 2026-04-06T14:23:25.623Z |
-| Completed | 2026-04-06T14:23:25.623Z |
+| Started | 2026-04-06T20:52:23.799Z |
+| Completed | 2026-04-06T20:52:23.799Z |
 | Duration | 0ms |
-| Pass | 6 |
+| Pass | 9 |
 | Warn | 0 |
 | Fail | 0 |
-| Critical | 3 |
+| Critical | 0 |
 
 ## Checks
 
-### 🚨 workspace_boundary — critical
+### ✅ workspace_boundary — pass
 
-Found 41 potential path escape patterns in agent/core code
-_Duration: 1.0s_
+No workspace boundary violations detected
+_Duration: 141ms_
 
 ### ✅ forbidden_signing_calls — pass
 
 No forbidden signing patterns found in worker code
-_Duration: 500ms_
+_Duration: 342ms_
 
 ### ✅ forbidden_broadcast_calls — pass
 
 No forbidden broadcast patterns found in worker code
-_Duration: 154ms_
+_Duration: 103ms_
 
 ### ✅ env_contracts — pass
 
@@ -36,7 +36,6 @@ All environment contract addresses match canonical values
 ### ✅ required_files — pass
 
 All required files present
-_Duration: 1ms_
 
 ### ✅ config_env_required — pass
 
@@ -46,12 +45,12 @@ All required environment variables present
 
 agent/config.js exists
 
-### 🚨 unsigned_handoff_only — critical
+### ✅ unsigned_handoff_only — pass
 
-Found 302 potential signing reference(s) violating unsigned-only doctrine
-_Duration: 196ms_
+No signing logic found in worker code — unsigned handoff doctrine upheld
+_Duration: 25ms_
 
-### 🚨 no_private_key_usage — critical
+### ✅ no_private_key_usage — pass
 
-Found 187 potential private key reference(s)
-_Duration: 436ms_
+No private key references found in worker code
+_Duration: 52ms_

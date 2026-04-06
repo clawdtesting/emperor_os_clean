@@ -1,36 +1,36 @@
 # protocol Audit Report
 
-❌ **Status: FAIL**
+⚠️ **Status: WARN**
 
 | Metric | Value |
 |---|---|
-| Started | 2026-04-06T14:23:31.473Z |
-| Completed | 2026-04-06T14:23:31.473Z |
+| Started | 2026-04-06T20:52:24.246Z |
+| Completed | 2026-04-06T20:52:24.246Z |
 | Duration | 0ms |
-| Pass | 3 |
-| Warn | 2 |
-| Fail | 2 |
+| Pass | 6 |
+| Warn | 1 |
+| Fail | 0 |
 | Critical | 0 |
 
 ## Checks
 
-### ⚠️ protocol.chainid_validation — warn
+### ✅ protocol.chainid_validation — pass
 
-EXPECTED_CHAIN_ID not set — chain ID validation skipped
+Chain ID 1 is valid
 
 ### ✅ protocol.contract_address_validation — pass
 
 All 3 contract addresses are valid and checksummed
-_Duration: 1ms_
+_Duration: 2ms_
 
-### ❌ protocol.function_selector_validation — fail
+### ✅ protocol.function_selector_validation — pass
 
-submitCompletion(uint256,string,bytes32): expected 0xd9d98ce4, got 0x5635b65d
+All 2 function selectors match canonical values: submitCompletion(uint256,string,bytes32)=0x5635b65d, approve(address,uint256)=0x095ea7b3
 _Duration: 3ms_
 
-### ❌ protocol.calldata_encoding — fail
+### ✅ protocol.calldata_encoding — pass
 
-submitCompletion selector mismatch: expected 0xd9d98ce4, got 0x5635b65d
+ABI encoding verified for submitCompletion — selector=0x5635b65d
 _Duration: 1ms_
 
 ### ✅ protocol.calldata_decoding — pass
@@ -41,8 +41,9 @@ _Duration: 1ms_
 ### ✅ protocol.erc20_approval_flow — pass
 
 ERC20 approve calldata encodes correctly — selector=0x095ea7b3, spender=0xB3AAeb69b630f0299791679c063d68d6687481d1
+_Duration: 1ms_
 
 ### ⚠️ protocol.prime_deadline_logic — warn
 
 No deadline-related code found in agent/core — PRIME deadline logic may be missing
-_Duration: 3.0s_
+_Duration: 351ms_
