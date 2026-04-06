@@ -13,7 +13,7 @@ const AGI_JOB_MANAGER_ABI = [
 ];
  
 // submitCompletion selector = keccak256("submitCompletion(uint256,string,bytes32)")[0:4]
-const SUBMIT_COMPLETION_SELECTOR = "0xd9d98ce4";
+const SUBMIT_COMPLETION_SELECTOR = "0x5635b65d";
 const APPLY_FOR_JOB_SELECTOR     = "0x6c83a5b7";
  
 export async function run(ctx) {

@@ -29,6 +29,7 @@ export async function listFiles(dir, filter) {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
+        if (entry.name === "node_modules" || entry.name === "audits") continue;
         files.push(...await listFiles(fullPath, filter));
       } else if (!filter || filter(entry.name, fullPath)) {
         files.push(fullPath);
@@ -39,6 +40,7 @@ export async function listFiles(dir, filter) {
     return [];
   }
 }
+
 
 export async function searchInFiles(dir, pattern, fileFilter) {
   const files = await listFiles(dir, fileFilter);

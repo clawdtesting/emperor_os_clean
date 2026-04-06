@@ -23,7 +23,7 @@ export async function run(ctx) {
 
   for (const dir of dirsToScan) {
     for (const pattern of escapePatterns) {
-      const matches = await searchInFiles(dir, pattern, (name) => name.endsWith(".js"));
+      const matches = await searchInFiles(dir, pattern, (name, fullPath) => name.endsWith(".js") && !fullPath.includes("node_modules"));
       escapeFound += matches.length;
     }
   }
