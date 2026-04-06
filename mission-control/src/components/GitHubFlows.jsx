@@ -202,25 +202,62 @@ function AuditPanel({ noToken }) {
   )
 }
 
-// ── Generic workflow card ─────────────────────────────────────────────────────
+// ── Generic workflow card with dispatch ───────────────────────────────────────
 function WorkflowCard({ flow }) {
   const s = runStyle(flow.latestRun)
+  const [dispatching, setDispatching] = useState(false)
+  const [dispatchMsg, setDispatchMsg] = useState(null)
+
+  async function dispatch() {
+    setDispatching(true)
+    setDispatchMsg(null)
+    try {
+      const r = await fetch('/api/workflow-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow: flow.path, ref: 'main', inputs: {} }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      setDispatchMsg('dispatched')
+      setTimeout(() => setDispatchMsg(null), 4000)
+    } catch (e) {
+      setDispatchMsg(`error: ${e.message}`)
+    } finally {
+      setDispatching(false)
+    }
+  }
+
   return (
-    <a href={flow.html_url || `${REPO}/actions/workflows/${flow.path?.split('/').pop()}`}
-       target="_blank" rel="noopener noreferrer"
-       className="block bg-slate-900 rounded-lg border border-slate-800 p-4 hover:border-slate-600 transition-colors">
+    <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 hover:border-slate-600 transition-colors">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <a href={flow.html_url || `${REPO}/actions/workflows/${flow.path?.split('/').pop()}`}
+           target="_blank" rel="noopener noreferrer"
+           className="min-w-0 flex-1">
           <div className="text-xs font-semibold text-slate-200 truncate">{flow.name || flow.path || 'Unnamed'}</div>
           <div className="text-xs text-slate-500 font-mono break-all mt-1">{flow.path || '—'}</div>
           <div className="text-[11px] text-slate-600 mt-2">state: {flow.state || 'unknown'}</div>
-        </div>
+        </a>
         <div className="text-right shrink-0 space-y-1">
           <span className={`text-xs font-mono ${s.text}`}>{s.label}</span>
           <div className="text-xs text-slate-600 font-mono">{timeAgo(flow.latestRun?.updated_at)}</div>
         </div>
       </div>
-    </a>
+      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-800">
+        <button
+          onClick={dispatch}
+          disabled={dispatching || flow.state !== 'active'}
+          className="text-xs px-3 py-1 rounded bg-blue-600/20 text-blue-400 border border-blue-800/50 hover:bg-blue-600/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {dispatching ? 'dispatching…' : '▶ run'}
+        </button>
+        {dispatchMsg && (
+          <span className={`text-xs ${dispatchMsg.startsWith('error') ? 'text-red-400' : 'text-green-400'}`}>
+            {dispatchMsg}
+          </span>
+        )}
+      </div>
+    </div>
   )
 }
 
