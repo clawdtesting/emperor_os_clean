@@ -14,6 +14,53 @@ const __dirname     = dirname(fileURLToPath(import.meta.url))
 const MCP_ENDPOINT  = process.env.AGI_ALPHA_MCP || 'https://agialpha.com/api/mcp'
 const PIPELINES_DIR = '/home/ubuntu/.openclaw/workspace/pipelines'
 const TESTS_DIR     = resolve(__dirname, '..', 'tests')
+const GITHUB_OWNER  = process.env.GITHUB_REPO_OWNER || 'clawdtesting'
+const GITHUB_REPO   = process.env.GITHUB_REPO_NAME || 'emperor_os_clean'
+const GITHUB_TOKEN  = String(
+  process.env.GITHUB_TOKEN
+  || process.env.GH_TOKEN
+  || process.env.GITHUB_PAT
+  || ''
+).trim()
+
+function githubHeaders(withAuth = true) {
+  return {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...(withAuth && GITHUB_TOKEN ? { Authorization: `Bearer ${GITHUB_TOKEN}` } : {}),
+  }
+}
+
+async function githubFetch(path, { allowAnonymousFallback = true } = {}) {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}${path}`
+  let usedAuth = Boolean(GITHUB_TOKEN)
+  let res = await fetch(url, {
+    headers: githubHeaders(true),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (
+    usedAuth
+    && allowAnonymousFallback
+    && (res.status === 401 || res.status === 403)
+  ) {
+    res = await fetch(url, {
+      headers: githubHeaders(false),
+      signal: AbortSignal.timeout(10000),
+    })
+    usedAuth = false
+  }
+
+  if (!res.ok) {
+    const body = await res.text()
+    const err = new Error(`GitHub API HTTP ${res.status}: ${body.slice(0, 200)}`)
+    err.status = res.status
+    err.usedAuth = usedAuth
+    throw err
+  }
+
+  return { data: await res.json(), usedAuth }
+}
 
 async function callMcp(tool, args = {}) {
   const res = await fetch(MCP_ENDPOINT, {
@@ -102,6 +149,33 @@ app.get('/api/agent', (_, res) => res.json({
   chain: 'Base Sepolia',
   infra: 'GitHub Actions + Render',
 }))
+
+app.get('/api/github/workflows', async (req, res) => {
+  try {
+    const { data } = await githubFetch('/actions/workflows?per_page=100')
+    const workflows = Array.isArray(data?.workflows) ? data.workflows : []
+    const withRuns = await Promise.all(workflows.map(async wf => {
+      try {
+        const runRes = await githubFetch(`/actions/workflows/${wf.id}/runs?per_page=1`)
+        return { ...wf, latestRun: runRes.data?.workflow_runs?.[0] || null }
+      } catch {
+        return { ...wf, latestRun: null }
+      }
+    }))
+    return res.json({
+      workflows: withRuns,
+      repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+    })
+  } catch (e) {
+    const status = Number(e?.status || 500)
+    if ((status === 401 || status === 403) && GITHUB_TOKEN) {
+      return res.status(502).json({
+        error: 'GitHub token rejected (expired or missing scope) — regenerate with workflow scope',
+      })
+    }
+    return res.status(500).json({ error: e.message || 'Failed loading GitHub workflows' })
+  }
+})
 
 
 const AGI_JOB_MANAGER_CONTRACT = (process.env.AGI_JOB_MANAGER_CONTRACT || '0xB3AAeb69b630f0299791679c063d68d6687481d1').toLowerCase()
