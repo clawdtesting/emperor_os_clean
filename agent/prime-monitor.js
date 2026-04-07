@@ -372,35 +372,6 @@ async function checkProcurementReorgIntegrity(procurementId, state) {
   }
   return { ok: true };
 }
-  if (reorgDetected) {
-    monitorState.lastReorgAt = new Date().toISOString();
-    monitorState.reorgCount = (monitorState.reorgCount ?? 0) + 1;
-  }
-}
-
-async function checkProcurementReorgIntegrity(procurementId, state) {
-  if (!state?.lastChainSync) return { ok: true };
-  const syncBlock = state.lastChainSyncBlock ?? null;
-  if (!syncBlock) return { ok: true };
-
-  try {
-    const currentHash = await getBlockHash(Number(syncBlock));
-    const storedHash = state.lastChainSyncBlockHash ?? null;
-    if (storedHash && currentHash && currentHash !== storedHash) {
-      return {
-        ok: false,
-        reason: "reorg",
-        syncBlock,
-        storedHash,
-        currentHash,
-        message: `Procurement #${procurementId} synced at block ${syncBlock} which has been reorged`,
-      };
-    }
-  } catch {
-    return { ok: true, reason: "hash-check-failed" };
-  }
-  return { ok: true };
-}
 
 // ── Refresh active procurements ───────────────────────────────────────────────
 
