@@ -30,3 +30,6 @@ Thumbs.db
 
 # Temp / junk
 junk/
+
+# Claude Code internals
+.claude/
