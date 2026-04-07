@@ -33,3 +33,20 @@ junk/
 
 # Claude Code internals
 .claude/
+
+# Emperor OS runtime (CRITICAL)
+memory/
+artifacts/
+audits/reports/history/
+audits/reports/latest/
+audit_result*.json
+prime_monitor_state.json
+monitor_health.json
+
+# Debug / temp
+*.backup
+debug_*.js
+
+# Local configs
+opencode.json
+MEMORY.md
