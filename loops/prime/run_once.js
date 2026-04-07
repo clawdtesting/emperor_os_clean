@@ -2,7 +2,7 @@
 // Uses canonical unsigned-handoff runtime (`agent/prime-monitor.js`) and exits.
 
 import { ethers } from 'ethers'
-import { startPrimeMonitor } from '../agent/prime-monitor.js'
+import { startPrimeMonitor } from '../../agent/prime-monitor.js'
 
 if (!process.env.ETH_RPC_URL) {
   console.error('ETH_RPC_URL not set')

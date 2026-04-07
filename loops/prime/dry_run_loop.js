@@ -4,8 +4,8 @@
 // Simulated: apply_for_job tx, request_job_completion tx
 
 import { callMcp }   from './mcp.js'
-import { scoreJob }  from './score.js'
-import { doWork }    from './work.js'
+import { scoreJob }  from '../../agent/score.js'
+import { doWork }    from '../../agent/work.js'
 
 const DRY = '[DRY RUN]'
 

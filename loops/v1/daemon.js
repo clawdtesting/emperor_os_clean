@@ -1,10 +1,10 @@
 // ./agent/daemon.js
 import "dotenv/config";
 import { acquireLock } from "./lock.js";
-import { ensureStateDirs } from "./state.js";
+import { ensureStateDirs } from "../../core/state.js";
 import { recover } from "./recovery.js";
-import { ensureWorkspaceArtifactDirs } from "./artifact-manager.js";
-import { runOrchestratorCycle } from "./orchestrator.js";
+import { ensureWorkspaceArtifactDirs } from "../../core/artifact-manager.js";
+import { runOrchestratorCycle } from "../../core/orchestrator.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
