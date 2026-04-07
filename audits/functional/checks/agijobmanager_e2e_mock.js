@@ -31,7 +31,7 @@ const REQUIRED_PIPELINE_FILES = [
 
 const REQUIRED_CORE_FILES = [
   `${CORE_ROOT}/state.js`,
-  `${CORE_ROOT}/idempotency.js`,
+  `${CORE_ROOT}/submit.js`,
 ];
 
 export async function run(ctx) {

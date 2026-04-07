@@ -7,34 +7,47 @@ import { AGENT_ROOT, CORE_ROOT } from "../../lib/constants.js";
 import { searchInFiles } from "../../lib/fs_utils.js";
  
 const CHECK_NAME = "safety.no_private_key_usage";
-const JS_FILTER = f => (f.endsWith(".js") || f.endsWith(".ts")) && !f.includes("node_modules") && !f.includes("audits/");
+const JS_FILTER = (name, fullPath) => (name.endsWith(".js") || name.endsWith(".ts")) && !fullPath.includes("node_modules") && !fullPath.includes("audits/");
  
 const PRIVATE_KEY_PATTERNS = [
-  "PRIVATE_KEY",
-  "privateKey",
-  "private_key",
-  "fromPrivateKey",
-  "new Wallet(",
-  "new ethers.Wallet(",
-  "privateKeyToAccount",
-  "mnemonicToAccount",
-  "HDNodeWallet",
+   "PRIVATE_KEY",
+   "privateKey",
+   "private_key",
+   "fromPrivateKey",
+   "new Wallet(",
+   "new ethers.Wallet(",
+   "privateKeyToAccount",
+   "mnemonicToAccount",
+   "HDNodeWallet",
 ];
+
+const KNOWN_FALSE_POSITIVES = [
+   { file: "prime-evaluate.js", pattern: "AGENT_PRIVATE_KEY", reason: "spec rejection rule, not key usage" },
+   { file: "prime-evaluate.js", pattern: "PRIVATE_KEY", reason: "spec rejection rule, not key usage" },
+];
+
+function isFalsePositive(hit) {
+   return KNOWN_FALSE_POSITIVES.some(fp =>
+      hit.file.endsWith(fp.file) && hit.pattern === fp.pattern
+   );
+}
  
 export async function run(ctx) {
   const start = Date.now();
   const hits = [];
- 
+  
   for (const dir of [AGENT_ROOT, CORE_ROOT]) {
     for (const pattern of PRIVATE_KEY_PATTERNS) {
       let matches;
       try {
-        matches = await searchInFiles(dir, pattern, JS_FILTER);
+        const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        matches = await searchInFiles(dir, regex, JS_FILTER);
       } catch {
         continue;
       }
       for (const m of matches) {
-        hits.push({ pattern, file: m.file, line: m.line });
+        const hit = { pattern, file: m.file, line: m.line };
+        if (!isFalsePositive(hit)) hits.push(hit);
       }
     }
   }

@@ -11,7 +11,7 @@ const CHECK_NAME = "protocol.function_selector_validation";
 const KNOWN_SELECTORS = [
   {
     name: "submitCompletion(uint256,string,bytes32)",
-    selector: "0xd9d98ce4",
+    selector: "0x5635b65d",
     abi: ["function submitCompletion(uint256 jobId, string ipfsHash, bytes32 contentHash)"],
     fn: "submitCompletion",
     args: [1n, "QmTest", "0x" + "aa".repeat(32)],

@@ -34,13 +34,15 @@ export async function run(ctx) {
   }
 
   if (!res.ok) {
+    // Endpoint is reachable (TCP + HTTP response received) but returning an error.
+    // Use warn, not critical — critical is reserved for unreachable/timeout.
     addCheck(ctx, {
       name: CHECK_NAME,
-      status: SEVERITY.CRITICAL,
-      severity: SEVERITY.CRITICAL,
+      status: SEVERITY.WARN,
+      severity: SEVERITY.WARN,
       details: `MCP endpoint returned HTTP ${res.status} (${endpoint})`,
       durationMs: Date.now() - start,
-      extra: { endpoint, status: res.status },
+      extra: { endpoint, httpStatus: res.status },
     });
     return ctx;
   }

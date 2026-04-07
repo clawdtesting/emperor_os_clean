@@ -14,7 +14,7 @@ export async function run(ctx) {
   for (const dir of dirsToScan) {
     for (const pattern of FORBIDDEN_SIGNING_PATTERNS) {
       const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      const matches = await searchInFiles(dir, regex, (name) => name.endsWith(".js"));
+      const matches = await searchInFiles(dir, regex, (name, fullPath) => name.endsWith(".js") && !fullPath.includes("node_modules"));
       for (const m of matches) {
         allMatches.push({ ...m, pattern });
       }

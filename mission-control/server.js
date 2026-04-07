@@ -16,17 +16,23 @@ const MCP_ENDPOINT  = process.env.AGI_ALPHA_MCP || 'https://agialpha.com/api/mcp
 const WORKSPACE_ROOT = resolve(__dirname, '..')
 const PIPELINES_DIR = join(WORKSPACE_ROOT, 'pipelines')
 const TESTS_DIR     = resolve(__dirname, '..', 'tests')
-const ARTIFACTS_DIR = join(WORKSPACE_ROOT, 'artifacts')
-const AGENT_STATE_DIR = join(WORKSPACE_ROOT, 'agent', 'state', 'jobs')
+const ARTIFACTS_DIR     = join(WORKSPACE_ROOT, 'artifacts')
+const AGENT_STATE_DIR   = join(WORKSPACE_ROOT, 'agent', 'state', 'jobs')
 const PROC_ARTIFACTS_DIR = join(WORKSPACE_ROOT, 'agent', 'artifacts')
-const NOTIF_STATE_DIR = resolve(__dirname, 'state')
-const NOTIF_STATE_FILE = join(NOTIF_STATE_DIR, 'notifications.json')
-const NOTIF_LOG_FILE = join(NOTIF_STATE_DIR, 'actions.log.jsonl')
+const NOTIF_STATE_DIR   = resolve(__dirname, 'state')
+const NOTIF_STATE_FILE  = join(NOTIF_STATE_DIR, 'notifications.json')
+const NOTIF_LOG_FILE    = join(NOTIF_STATE_DIR, 'actions.log.jsonl')
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
-const MC_URL = process.env.MISSION_CONTROL_URL || 'http://100.104.194.128:3000'
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-const GH_REPO = process.env.GH_REPO || 'clawdtesting/emperor_os_clean'
+const TELEGRAM_CHAT_ID   = process.env.TELEGRAM_CHAT_ID
+const MC_URL             = process.env.MISSION_CONTROL_URL || 'http://100.104.194.128:3000'
+const GITHUB_OWNER  = process.env.GITHUB_REPO_OWNER || 'clawdtesting'
+const GITHUB_REPO   = process.env.GITHUB_REPO_NAME || 'emperor_os_clean'
+const GITHUB_TOKEN  = String(
+  process.env.GITHUB_TOKEN
+  || process.env.GH_TOKEN
+  || process.env.GITHUB_PAT
+  || ''
+).trim()
 
 mkdirSync(NOTIF_STATE_DIR, { recursive: true })
 
@@ -71,22 +77,12 @@ function urgencyLabel(secsUntilDeadline) {
 }
 
 function formatDuration(secs) {
-  if (secs == null) return '—'
+  if (secs == null) return '\u2014'
   const s = Math.abs(secs)
   if (s < 60) return `${s}s`
   if (s < 3600) return `${Math.floor(s / 60)}m`
   if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
   return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`
-}
-
-function timeAgo(iso) {
-  if (!iso) return '—'
-  const mins = Math.round((Date.now() - Date.parse(iso)) / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.round(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.round(hrs / 24)}d ago`
 }
 
 async function sendTelegramMessage(text) {
@@ -118,12 +114,10 @@ function buildTelegramMessage(action) {
   const deadlineText = action.secsUntilDeadline != null
     ? (action.secsUntilDeadline < 0 ? `Deadline passed ${formatDuration(action.secsUntilDeadline)} ago` : `${formatDuration(action.secsUntilDeadline)} remaining`)
     : ''
-
   const sourceLabel = action.sourceType === 'procurement' ? `Proc #${action.sourceId}` : `Job #${action.sourceId}`
   const deepLink = action.sourceType === 'procurement'
     ? `${MC_URL}/?tab=ops&proc=${action.sourceId}`
     : `${MC_URL}/?tab=ops`
-
   let msg = `${icon} <b>${sourceLabel}</b> \u2014 ${action.action}\n`
   msg += `${action.summary}\n`
   if (deadlineText) msg += `\u23F1 ${deadlineText}\n`
@@ -135,25 +129,19 @@ function buildTelegramMessage(action) {
 async function scanProcurementActions() {
   const actions = []
   if (!existsSync(PROC_ARTIFACTS_DIR)) return actions
-
   const dirs = readdirSync(PROC_ARTIFACTS_DIR).filter(d => d.startsWith('proc_') && statSync(join(PROC_ARTIFACTS_DIR, d)).isDirectory())
-
   for (const dir of dirs) {
     const procId = dir.replace('proc_', '')
     const statePath = join(PROC_ARTIFACTS_DIR, dir, 'state.json')
     const nextActionPath = join(PROC_ARTIFACTS_DIR, dir, 'next_action.json')
-
     const state = readJsonSafe(statePath, null)
     const nextAction = readJsonSafe(nextActionPath, null)
-
     if (!state && !nextAction) continue
-
     const action = nextAction?.action || 'UNKNOWN'
     const status = state?.status || 'unknown'
     const secsUntilDeadline = nextAction?.secsUntilDeadline
     const blockedReason = nextAction?.blockedReason
     const summary = nextAction?.summary || status
-
     actions.push({
       sourceType: 'procurement',
       sourceId: procId,
@@ -166,27 +154,20 @@ async function scanProcurementActions() {
       updatedAt: state?.lastChainSync || nextAction?.generatedAt || null,
     })
   }
-
   return actions
 }
 
 async function scanJobActions() {
   const actions = []
   if (!existsSync(AGENT_STATE_DIR)) return actions
-
   const files = readdirSync(AGENT_STATE_DIR).filter(f => f.endsWith('.json'))
-
   for (const file of files) {
     const state = readJsonSafe(join(AGENT_STATE_DIR, file), null)
     if (!state) continue
-
     const jobId = state.jobId || file.replace('.json', '')
     const status = state.status || 'unknown'
-
     const needsAttention = ['assigned', 'in_progress', 'needs_review', 'completion_ready'].includes(status.toLowerCase())
-
     if (!needsAttention) continue
-
     actions.push({
       sourceType: 'job',
       sourceId: jobId,
@@ -199,27 +180,22 @@ async function scanJobActions() {
       updatedAt: state.updatedAt || state.lastSync || null,
     })
   }
-
   return actions
 }
 
 async function scanAndNotify() {
   const state = loadNotifState()
   const now = new Date().toISOString()
-
   try {
     const [procActions, jobActions] = await Promise.all([
       scanProcurementActions(),
       scanJobActions(),
     ])
-
     const allActions = [...procActions, ...jobActions]
     let newActions = []
-
     for (const action of allActions) {
       const key = `${action.sourceType}:${action.sourceId}`
       const lastNotified = state.lastNotified[key]
-
       if (!lastNotified || lastNotified.status !== action.status || lastNotified.action !== action.action) {
         const actionId = `${key}:${action.status}:${Date.now()}`
         const entry = {
@@ -237,31 +213,65 @@ async function scanAndNotify() {
           createdAt: now,
           dismissed: false,
         }
-
         state.actions.push(entry)
         state.lastNotified[key] = { status: action.status, action: action.action, at: now }
         newActions.push(entry)
         appendActionLog(entry)
-
         const tgMsg = buildTelegramMessage(action)
         const sent = await sendTelegramMessage(tgMsg)
         console.log(`[notify] ${action.sourceType} #${action.sourceId}: ${action.status} \u2192 ${action.action} (telegram: ${sent ? 'sent' : 'failed'})`)
       }
     }
-
     if (newActions.length > 0) {
       const msg = `data: ${JSON.stringify({ type: 'actions', actions: newActions })}\n\n`
       sseClients.forEach(c => c.write(msg))
     }
-
     if (state.actions.length > 500) {
       state.actions = state.actions.slice(-500)
     }
-
     saveNotifState(state)
   } catch (err) {
     console.error('[notify] scan error:', err.message)
   }
+}
+
+function githubHeaders(withAuth = true) {
+  return {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...(withAuth && GITHUB_TOKEN ? { Authorization: `Bearer ${GITHUB_TOKEN}` } : {}),
+  }
+}
+
+async function githubFetch(path, { allowAnonymousFallback = true } = {}) {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}${path}`
+  let usedAuth = Boolean(GITHUB_TOKEN)
+  let res = await fetch(url, {
+    headers: githubHeaders(true),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (
+    usedAuth
+    && allowAnonymousFallback
+    && (res.status === 401 || res.status === 403)
+  ) {
+    res = await fetch(url, {
+      headers: githubHeaders(false),
+      signal: AbortSignal.timeout(10000),
+    })
+    usedAuth = false
+  }
+
+  if (!res.ok) {
+    const body = await res.text()
+    const err = new Error(`GitHub API HTTP ${res.status}: ${body.slice(0, 200)}`)
+    err.status = res.status
+    err.usedAuth = usedAuth
+    throw err
+  }
+
+  return { data: await res.json(), usedAuth }
 }
 
 async function callMcp(tool, args = {}) {
@@ -351,6 +361,33 @@ app.get('/api/agent', (_, res) => res.json({
   chain: 'Base Sepolia',
   infra: 'GitHub Actions + Render',
 }))
+
+app.get('/api/github/workflows', async (req, res) => {
+  try {
+    const { data } = await githubFetch('/actions/workflows?per_page=100')
+    const workflows = Array.isArray(data?.workflows) ? data.workflows : []
+    const withRuns = await Promise.all(workflows.map(async wf => {
+      try {
+        const runRes = await githubFetch(`/actions/workflows/${wf.id}/runs?per_page=1`)
+        return { ...wf, latestRun: runRes.data?.workflow_runs?.[0] || null }
+      } catch {
+        return { ...wf, latestRun: null }
+      }
+    }))
+    return res.json({
+      workflows: withRuns,
+      repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+    })
+  } catch (e) {
+    const status = Number(e?.status || 500)
+    if ((status === 401 || status === 403) && GITHUB_TOKEN) {
+      return res.status(502).json({
+        error: 'GitHub token rejected (expired or missing scope) — regenerate with workflow scope',
+      })
+    }
+    return res.status(500).json({ error: e.message || 'Failed loading GitHub workflows' })
+  }
+})
 
 
 const AGI_JOB_MANAGER_CONTRACT = (process.env.AGI_JOB_MANAGER_CONTRACT || '0xB3AAeb69b630f0299791679c063d68d6687481d1').toLowerCase()
@@ -902,59 +939,117 @@ console.log('[notify] starting scanner (interval: ' + (SCAN_INTERVAL_MS / 1000) 
 scanAndNotify()
 setInterval(scanAndNotify, SCAN_INTERVAL_MS)
 
+// ── GitHub API proxy helpers ──────────────────────────────────────────────────
+
+function ghHeaders(extra = {}) {
+  const h = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...extra,
+  }
+  if (GITHUB_TOKEN) h.Authorization = `Bearer ${GITHUB_TOKEN}`
+  return h
+}
+
+async function ghGet(path) {
+  const r = await fetch(`https://api.github.com${path}`, {
+    headers: ghHeaders(),
+    signal: AbortSignal.timeout(12000),
+  })
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '')
+    const err = new Error(`GitHub API ${r.status}`)
+    err.status = r.status
+    err.body = txt.slice(0, 400)
+    err.noToken = !GITHUB_TOKEN
+    throw err
+  }
+  return r.json()
+}
+
+function ghErrResponse(e) {
+  if (e.status === 401 || e.status === 403) {
+    return {
+      error: e.noToken
+        ? 'GitHub token not configured — set GITHUB_TOKEN in server env'
+        : 'GitHub token rejected (expired or missing scope) — regenerate with workflow scope',
+      noToken: e.noToken,
+      needsToken: true,
+      status: e.status,
+    }
+  }
+  return { error: e.body || e.message }
+}
+
+// ── GitHub Actions — full workflow list with latest run per workflow ───────────
+app.get('/api/github/workflows', async (req, res) => {
+  try {
+    const data = await ghGet(`/repos/${GH_REPO}/actions/workflows?per_page=100`)
+    const workflows = Array.isArray(data?.workflows) ? data.workflows : []
+
+    const withRuns = await Promise.all(
+      workflows.map(async wf => {
+        try {
+          const runData = await ghGet(`/repos/${GH_REPO}/actions/workflows/${wf.id}/runs?per_page=1`)
+          return { ...wf, latestRun: runData?.workflow_runs?.[0] || null }
+        } catch {
+          return { ...wf, latestRun: null }
+        }
+      })
+    )
+
+    res.json({ workflows: withRuns, fetchedAt: new Date().toISOString(), hasToken: Boolean(GITHUB_TOKEN) })
+  } catch (e) {
+    const status = e.status === 401 || e.status === 403 ? e.status : 500
+    res.status(status).json(ghErrResponse(e))
+  }
+})
+
+// ── GitHub Actions — recent runs for a specific workflow ──────────────────────
+app.get('/api/workflow-runs/:workflow', async (req, res) => {
+  const perPage = Math.min(Number(req.query.per_page) || 10, 30)
+  try {
+    const data = await ghGet(
+      `/repos/${GH_REPO}/actions/workflows/${encodeURIComponent(req.params.workflow)}/runs?per_page=${perPage}`
+    )
+    res.json(data)
+  } catch (e) {
+    const status = e.status === 401 || e.status === 403 ? e.status : 500
+    res.status(status).json(ghErrResponse(e))
+  }
+})
+
 // ── GitHub Actions — workflow dispatch ───────────────────────────────────────
 app.post('/api/workflow-dispatch', async (req, res) => {
   const { workflow, ref = 'main', inputs = {} } = req.body || {}
   if (!workflow) return res.status(400).json({ error: 'workflow required' })
-  if (!GITHUB_TOKEN) return res.status(401).json({ error: 'GITHUB_TOKEN not set on server' })
+  if (!GITHUB_TOKEN) {
+    return res.status(401).json({
+      error: 'GitHub token not configured — set GITHUB_TOKEN in server env',
+      noToken: true,
+      needsToken: true,
+    })
+  }
 
   try {
     const r = await fetch(
       `https://api.github.com/repos/${GH_REPO}/actions/workflows/${workflow}/dispatches`,
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          'Content-Type': 'application/json',
-        },
+        headers: ghHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ ref, inputs }),
         signal: AbortSignal.timeout(10000),
       }
     )
     if (!r.ok) {
       const txt = await r.text().catch(() => '')
-      return res.status(r.status).json({ error: `GitHub API ${r.status}: ${txt.slice(0, 300)}` })
+      const err = new Error(`GitHub API ${r.status}`)
+      err.status = r.status
+      err.body = txt.slice(0, 400)
+      err.noToken = false
+      return res.status(r.status).json(ghErrResponse(err))
     }
     res.json({ ok: true, workflow, ref, inputs })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-// ── GitHub Actions — recent runs for a workflow ───────────────────────────────
-app.get('/api/workflow-runs/:workflow', async (req, res) => {
-  if (!GITHUB_TOKEN) return res.status(401).json({ error: 'GITHUB_TOKEN not set on server' })
-
-  const perPage = Math.min(Number(req.query.per_page) || 10, 30)
-  try {
-    const r = await fetch(
-      `https://api.github.com/repos/${GH_REPO}/actions/workflows/${encodeURIComponent(req.params.workflow)}/runs?per_page=${perPage}`,
-      {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-        signal: AbortSignal.timeout(10000),
-      }
-    )
-    if (!r.ok) {
-      const txt = await r.text().catch(() => '')
-      return res.status(r.status).json({ error: `GitHub API ${r.status}: ${txt.slice(0, 300)}` })
-    }
-    res.json(await r.json())
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

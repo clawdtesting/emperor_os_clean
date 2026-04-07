@@ -294,7 +294,6 @@ async function run() {
     console.log(`Payout: ${procurement.payout} AGIALPHA | Duration: ${procurement.duration / 86400} days`)
     console.log(`Min agents: ${procurement.minAgents} | Max finalists: ${procurement.maxFinalists} | Validators: ${procurement.validatorCount}`)
   }
-
   // ── STEP 2: Evaluate ──────────────────────────────────────────────────────
   sep('STEP 2 — evaluate() [REAL Claude call]')
   console.log('Asking Claude: should Emperor_OS apply?')

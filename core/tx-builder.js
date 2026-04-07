@@ -1,4 +1,4 @@
-// /home/ubuntu/emperor_OS/.openclaw/workspace/agent/tx-builder.js
+// ./agent/tx-builder.js
 import { CONFIG } from "./config.js";
 
 function toBigIntValue(value) {
