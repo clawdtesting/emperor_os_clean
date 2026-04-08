@@ -375,6 +375,7 @@ export async function listActiveProcurements() {
       PROC_STATUS.REJECTED,
       PROC_STATUS.NOT_SHORTLISTED,
       PROC_STATUS.EXPIRED,
+      PROC_STATUS.MISSED_WINDOW,
     ]);
     return !terminal.has(s.status);
   });

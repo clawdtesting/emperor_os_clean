@@ -1,6 +1,6 @@
 import path from "path";
 import { writeJson, readJson } from "./prime-state.js";
-import { simulateUnsignedTx } from "../core/simulation.js";
+import { simulateUnsignedTx } from "./simulation.js";
 import { validatePrimeUnsignedTxPackage } from "./prime-tx-validator.js";
 
 const DEFAULT_MAX_PACKAGE_AGE_SECS = Number(process.env.PRIME_MAX_PACKAGE_AGE_SECS ?? "900");
