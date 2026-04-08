@@ -14,6 +14,7 @@ import { IpfsTab } from './components/IpfsTab'
 import OperationsLane from './components/OperationsLane'
 import { ActionsPanel } from './components/ActionsPanel'
 import { PipelineRegistry } from './components/PipelineRegistry'
+import { MissionControlTab } from './components/MissionControlTab'
 import { useWallet } from './hooks/useWallet'
 
 function compareJobIdDesc(a, b) {
@@ -30,17 +31,37 @@ function compareJobIdDesc(a, b) {
   }
 }
 
+const V2_CONTRACT = '0xbf6699c1f24bebbfabb515583e88a055bf2f9ec2'
+const V2_BOOTSTRAP_TXS = [
+  '0x56e959fe23d294542ea7b5651c8e303adf13b029a08af50665f2feb986a3f12e',
+  '0xbcc099124923dc1ecf796d594fa4d16d271dd001edfef3a38b5675eb9cbfdc91',
+]
+
 export default function App() {
   const { jobs, loading, error, countdown, events, refetch } = useJobs()
   const { unreadCount } = useActions()
   const [selected, setSelected] = useState(null)
-  const [tab, setTab] = useState('jobs')
+  const [tab, setTab] = useState('mission')
   const wallet = useWallet()
 
   const assigned  = jobs.filter(j => j.status === 'Assigned')
   const completed = jobs.filter(j => j.status === 'Completed')
   const disputed  = jobs.filter(j => j.status === 'Disputed')
   const jobsDesc  = [...jobs].sort(compareJobIdDesc)
+  const jobsV2 = jobsDesc.filter(j => j.source === 'agijobmanager-v2')
+  const jobsV1 = jobsDesc.filter(j => j.source !== 'agijobmanager-v2' && j.source !== 'agiprimediscovery')
+  const jobsV2Display = jobsV2.length ? jobsV2 : [{
+    source: 'agijobmanager-v2',
+    jobId: 'V2-1',
+    status: 'Observed',
+    payout: '—',
+    duration: '—',
+    approvals: 0,
+    disapprovals: 0,
+    employer: V2_CONTRACT,
+    assignedAgent: null,
+    createdAt: 'on-chain bootstrap',
+  }]
 
   function handleSelectJob(job) {
     setSelected(job)
@@ -78,7 +99,7 @@ export default function App() {
         <div className="grid md:grid-cols-[180px,1fr] gap-4">
         <div className="rounded-lg border border-slate-800 bg-slate-900 p-2 h-fit">
         <div className="flex flex-col gap-1">
-          {['jobs', selected ? 'detail' : null, 'request', 'wallet', 'prime', 'ops', 'actions', 'workflows', 'pipelines', 'events', 'test', 'ipfs'].filter(Boolean).map(t => (
+          {['mission', 'jobs', 'jobs-v1', 'jobs-v2', selected ? 'detail' : null, 'request', 'wallet', 'prime', 'ops', 'actions', 'workflows', 'pipelines', 'events', 'test', 'ipfs'].filter(Boolean).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -90,6 +111,12 @@ export default function App() {
               {t === 'jobs' && assigned.length > 0 && (
                 <span className="ml-1 bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5">{assigned.length}</span>
               )}
+              {t === 'jobs-v1' && jobsV1.length > 0 && (
+                <span className="ml-1 bg-cyan-700 text-white text-xs rounded-full px-1.5 py-0.5">{jobsV1.length}</span>
+              )}
+              {t === 'jobs-v2' && jobsV2Display.length > 0 && (
+                <span className="ml-1 bg-fuchsia-700 text-white text-xs rounded-full px-1.5 py-0.5">{jobsV2Display.length}</span>
+              )}
               {t === 'actions' && unreadCount > 0 && (
                 <span className="ml-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5">{unreadCount}</span>
               )}
@@ -98,6 +125,19 @@ export default function App() {
         </div>
         </div>
         <div>
+
+        {tab === 'mission' && (
+          <MissionControlTab
+            wallet={wallet}
+            jobsCount={jobsDesc.length}
+            jobsV1Count={jobsV1.length}
+            jobsV2Count={jobsV2Display.length}
+            assignedCount={assigned.length}
+            unreadCount={unreadCount}
+            onOpenTab={setTab}
+          />
+        )}
+
         {tab === 'jobs' && (
           <div className="space-y-2">
             {loading && <div className="text-slate-600 text-xs text-center py-8">Loading...</div>}
@@ -113,6 +153,57 @@ export default function App() {
           </div>
         )}
 
+
+
+        {tab === 'jobs-v1' && (
+          <div className="space-y-2">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">AGIJobManager v1 lane</div>
+            {jobsV1.map(j => (
+              <JobCard
+                key={`${j.source || 'agijobmanager'}-${j.jobId}`}
+                job={j}
+                selected={selected?.jobId === j.jobId && selected?.source === j.source}
+                onClick={() => handleSelectJob(j)}
+              />
+            ))}
+            {!jobsV1.length && <div className="text-slate-600 text-xs py-8 text-center">No v1 jobs found.</div>}
+          </div>
+        )}
+
+        {tab === 'jobs-v2' && (
+          <div className="space-y-2">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">AGIJobManager v2 lane</div>
+            {!jobsV2.length && (
+              <div className="rounded border border-fuchsia-900/60 bg-fuchsia-950/20 p-3 text-xs text-slate-300">
+                <div className="font-semibold text-fuchsia-300">Bootstrap on-chain signal (v2)</div>
+                <div className="text-slate-400 mt-1 break-all">
+                  Contract:{' '}
+                  <a className="text-blue-400 hover:text-blue-300" target="_blank" rel="noreferrer" href={`https://etherscan.io/address/${V2_CONTRACT}`}>
+                    {V2_CONTRACT}
+                  </a>
+                </div>
+                <div className="text-slate-400 mt-1">Recent tx:</div>
+                <ul className="mt-1 space-y-1">
+                  {V2_BOOTSTRAP_TXS.map(tx => (
+                    <li key={tx}>
+                      <a className="text-blue-400 hover:text-blue-300 break-all" target="_blank" rel="noreferrer" href={`https://etherscan.io/tx/${tx}`}>
+                        {tx}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {jobsV2Display.map(j => (
+              <JobCard
+                key={`${j.source || 'agijobmanager'}-${j.jobId}`}
+                job={j}
+                selected={selected?.jobId === j.jobId && selected?.source === j.source}
+                onClick={() => handleSelectJob(j)}
+              />
+            ))}
+          </div>
+        )}
         {tab === 'detail' && (
           <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
             <button onClick={() => setTab('jobs')} className="text-xs text-slate-500 mb-3 flex items-center gap-1 hover:text-slate-300">← back to jobs</button>
