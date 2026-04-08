@@ -14,8 +14,11 @@
 // SAFETY CONTRACT: Pure evaluation. No signing. No broadcasting.
 // One deterministic output per evidence bundle.
 
-import { createHash } from "crypto";
 import { VALIDATOR_CONFIG } from "./config.js";
+import {
+  computeScoreCommitment,
+  verifyScoreRevealAgainstCommit,
+} from "../agent/prime-validator-engine.js";
 
 const SCORING_WEIGHTS = {
   specCompliance: 0.30,
@@ -228,15 +231,9 @@ export function adjudicateScore(evidence, trialContent) {
   };
 }
 
-export function computeScoreCommitment(score, salt) {
-  return `0x${createHash("sha256").update(`${score}:${salt}`, "utf8").digest("hex")}`;
-}
+// Re-exported from prime-validator-engine.js — single source of truth for commitment math.
+export { computeScoreCommitment };
 
 export function verifyScoreReveal({ score, salt, expectedCommitment }) {
-  const recomputed = computeScoreCommitment(score, salt);
-  return {
-    expectedCommitment: String(expectedCommitment ?? "").toLowerCase(),
-    recomputedCommitment: recomputed.toLowerCase(),
-    verified: recomputed.toLowerCase() === String(expectedCommitment ?? "").toLowerCase(),
-  };
+  return verifyScoreRevealAgainstCommit({ score, salt, expectedCommitment });
 }
