@@ -11,9 +11,8 @@
 //   7. Resume seamlessly after process restart
 //
 // SAFETY CONTRACT:
-//   - READS ONLY. Does not build tx packages, does not trigger actions.
-//   - The monitor prepares information. A human or orchestrator decides what to do.
-//   - No signing. No broadcasting. No hidden automation.
+//   - Dispatches validator scoring (unsigned tx packages only) when next-action requires it.
+//   - No signing. No broadcasting. Produces unsigned tx files for operator review.
 
 import { CONFIG } from "./config.js";
 import {
@@ -45,6 +44,10 @@ import {
 import { inspectProcurement } from "./prime-inspector.js";
 import { readJson, writeJson } from "./prime-state.js";
 import { isFinalizedBlock, reconcileWinnerEvidence } from "./prime-settlement.js";
+import {
+  runValidatorScoreCommit,
+  runValidatorScoreReveal,
+} from "./prime-validator-scoring.js";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -447,6 +450,24 @@ async function refreshActiveProcurements(agentAddress) {
       });
 
       await writeProcCheckpoint(procurementId, "next_action.json", nextAction);
+
+      // Dispatch validator scoring actions when applicable
+      if (nextAction.action === "BUILD_VALIDATOR_SCORE_COMMIT_TX" && agentAddress) {
+        try {
+          log(`  #${procurementId} dispatching validator score commit…`);
+          await runValidatorScoreCommit({ procurementId, validatorAddress: agentAddress });
+        } catch (err) {
+          log(`  #${procurementId} validator score commit failed: ${err.message}`);
+        }
+      }
+      if (nextAction.action === "BUILD_VALIDATOR_SCORE_REVEAL_TX" && agentAddress) {
+        try {
+          log(`  #${procurementId} dispatching validator score reveal…`);
+          await runValidatorScoreReveal({ procurementId, validatorAddress: agentAddress });
+        } catch (err) {
+          log(`  #${procurementId} validator score reveal failed: ${err.message}`);
+        }
+      }
 
       // Update state lastChainSync with block hash for reorg detection
       await setProcState(procurementId, {
