@@ -1,6 +1,6 @@
 // Handler: creative + writing jobs
 
-import { claude } from '../../loops/AGIJobManager-v1/work.js'
+import { llmCall } from '../llm-router.js'
 
 const SYSTEM = `You are a professional writer producing paid deliverables for a decentralized AI job market. Human validators will approve or reject your work based on whether it satisfies every acceptance criterion in the job spec.
 
@@ -32,7 +32,7 @@ export async function creative(spec) {
     tags: props.tags || []
   })
 
-  const raw = await claude(SYSTEM, user, { maxTokens: 8192 })
+  const raw = await llmCall(SYSTEM, user, spec, { maxTokens: 8192 })
   const parsed = JSON.parse(raw)
 
   return {
