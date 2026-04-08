@@ -6,19 +6,25 @@ const PLAYBOOK = [
     cta: 'Open Wallet',
   },
   {
-    title: '2) Inspect active opportunities',
-    detail: 'Triage jobs and procurements, then drill into detail for the exact phase and required artifacts.',
-    tab: 'jobs',
-    cta: 'Open Jobs',
+    title: '2) Run AGIJobManager v1 lane',
+    detail: 'Handle legacy v1 jobs in the dedicated lane: monitor, select, and execute contract-legible artifacts.',
+    tab: 'jobs-v1',
+    cta: 'Open v1 lane',
   },
   {
-    title: '3) Execute operator lane',
+    title: '3) Run Prime v2 lane',
+    detail: 'Handle Prime/v2 procurements separately from v1. Keep phase transitions and tx package checks explicit.',
+    tab: 'jobs-v2',
+    cta: 'Open v2 lane',
+  },
+  {
+    title: '4) Execute operator lane',
     detail: 'Use Prime + Ops + Actions tabs as the transaction package lifecycle lane. Never sign from runtime.',
     tab: 'prime',
     cta: 'Open Prime',
   },
   {
-    title: '4) Publish and verify delivery',
+    title: '5) Publish and verify delivery',
     detail: 'Use request/IPFS utilities for structured payload creation, publication, and fetch-back verification.',
     tab: 'ipfs',
     cta: 'Open IPFS',
@@ -33,7 +39,7 @@ function statusChip(label, ok) {
   )
 }
 
-export function MissionControlTab({ wallet, jobsCount, assignedCount, unreadCount, onOpenTab }) {
+export function MissionControlTab({ wallet, jobsCount, jobsV1Count, jobsV2Count, assignedCount, unreadCount, onOpenTab }) {
   const isMainnet = wallet.chainId === '0x1'
   const readinessChecks = [
     Boolean(wallet.providerAvailable),
@@ -86,10 +92,18 @@ export function MissionControlTab({ wallet, jobsCount, assignedCount, unreadCoun
 
       <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
         <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Live pressure points</div>
-        <div className="grid sm:grid-cols-3 gap-2 text-xs">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-2 text-xs">
           <button onClick={() => onOpenTab('jobs')} className="rounded border border-slate-800 bg-slate-950 p-3 text-left hover:border-blue-800">
             <div className="text-slate-500">Tracked jobs</div>
             <div className="text-slate-100 text-lg font-semibold">{jobsCount}</div>
+          </button>
+          <button onClick={() => onOpenTab('jobs-v1')} className="rounded border border-slate-800 bg-slate-950 p-3 text-left hover:border-cyan-800">
+            <div className="text-slate-500">v1 lane jobs</div>
+            <div className="text-cyan-300 text-lg font-semibold">{jobsV1Count}</div>
+          </button>
+          <button onClick={() => onOpenTab('jobs-v2')} className="rounded border border-slate-800 bg-slate-950 p-3 text-left hover:border-fuchsia-800">
+            <div className="text-slate-500">v2 lane jobs</div>
+            <div className="text-fuchsia-300 text-lg font-semibold">{jobsV2Count}</div>
           </button>
           <button onClick={() => onOpenTab('jobs')} className="rounded border border-slate-800 bg-slate-950 p-3 text-left hover:border-blue-800">
             <div className="text-slate-500">Assigned now</div>
