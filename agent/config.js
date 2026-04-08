@@ -15,9 +15,6 @@ export const CONFIG = {
   AGENT_SUBDOMAIN: process.env.AGENT_SUBDOMAIN ?? "",
   PINATA_JWT: process.env.PINATA_JWT ?? "",
 
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
-  OPENAI_MODEL: process.env.OPENAI_MODEL ?? "gpt-5.4",
-
   MIN_PAYOUT_AGIALPHA: Number(process.env.MIN_PAYOUT_AGIALPHA ?? "500"),
   MAX_ACTIVE_JOBS: Number(process.env.MAX_ACTIVE_JOBS ?? "3"),
   DISCOVER_LIMIT: Number(process.env.DISCOVER_LIMIT ?? "50"),

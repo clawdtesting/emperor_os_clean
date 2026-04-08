@@ -4,40 +4,9 @@ import { buildBrief } from "./build-brief.js";
 import { buildPrompt } from "./templates.js";
 import { validateOutput } from "./validate.js";
 import { claimJobStageIdempotency, listAllJobStates, setJobState } from "./state.js";
-import { CONFIG, requireEnv } from "./config.js";
+import { CONFIG } from "./config.js";
 import { ensureJobArtifactDir, getJobArtifactPaths, writeJson, writeText } from "./artifact-manager.js";
-
-async function callClaude(prompt) {
-  requireEnv("ANTHROPIC_API_KEY", CONFIG.ANTHROPIC_API_KEY);
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": CONFIG.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: CONFIG.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
-      max_tokens: 8192,
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Anthropic HTTP ${res.status}: ${txt.slice(0, 500)}`);
-  }
-
-  const data = await res.json();
-  const text = data.content?.[0]?.text?.trim();
-
-  if (!text) {
-    throw new Error("Anthropic response contained no output text");
-  }
-
-  return text;
-}
+import { llmCall } from "../config/llm_router.js";
 
 export async function execute() {
   const jobs = await listAllJobStates();
@@ -84,7 +53,10 @@ export async function execute() {
       await writeJson(artifactPaths.normalizedSpec, normalizedSpec);
 
       const prompt = await buildPrompt(brief);
-      const markdown = await callClaude(prompt);
+      const { content: markdown } = await llmCall(
+        [{ role: "user", content: prompt }],
+        { max_tokens: 8192 }
+      );
 
       const validation = validateOutput(markdown, brief);
       await writeJson(artifactPaths.executionValidation, validation);
