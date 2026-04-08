@@ -12,8 +12,8 @@ const PLAYBOOK = [
     cta: 'Open v1 lane',
   },
   {
-    title: '3) Run Prime v2 lane',
-    detail: 'Handle Prime/v2 procurements separately from v1. Keep phase transitions and tx package checks explicit.',
+    title: '3) Run AGIJobManager v2 lane',
+    detail: 'Handle AGIJobManager v2 jobs separately from v1 so execution and validation lanes stay explicit.',
     tab: 'jobs-v2',
     cta: 'Open v2 lane',
   },
