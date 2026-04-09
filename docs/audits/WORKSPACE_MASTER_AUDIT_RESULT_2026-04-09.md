@@ -24,33 +24,39 @@ VISIBLE STRUCTURE
   archive/index:          PRESENT
 
 ON-CHAIN CONNECTIVITY
-  RPC endpoint:           UNREACHABLE (RPC_URL missing; ETH_RPC_URL also missing)
+  RPC endpoint:           UNREACHABLE (RPC_URL/ETH_RPC_URL missing in current runtime)
   Chain ID:               NOT TESTED (expected 1)
   AGIJobManager:          UNREACHABLE (no RPC in audit env)
   AGIJobDiscoveryPrime:   UNREACHABLE (no RPC in audit env)
 
 AGENT IDENTITY
-  Wallet address:         NOT CONFIRMABLE (only truncated docs references in README/HEARTBEAT)
+  Wallet address:         NOT CONFIRMABLE (AGENT_ADDRESS missing; docs only show truncated 0x6484c5...)
   ETH balance:            NOT TESTED
   AGIALPHA balance:       NOT TESTED
-  Authorization checks:   PRESENT (legacy/preflight scripts call isAuthorizedAgent)
-  Identity gating:        PRESENT (subdomain + merkle proof paths in Prime tx/app flow)
+  Authorization checks:   PRESENT (legacy/preflight scripts include isAuthorizedAgent)
+  Identity gating:        PRESENT (subdomain + merkle proof paths in Prime flow)
 
 MCP & IPFS
   MCP client:             agent/mcp.js
   MCP endpoint:           UNREACHABLE (AGI_ALPHA_MCP missing)
   Job ingest path:        BROKEN (list_jobs call fails without MCP endpoint)
-  IPFS path:              UNKNOWN (code present, env missing)
-  Fetch-back verify:      UNKNOWN (verify code present but no runtime publication test possible)
+  IPFS path:              UNKNOWN (code path present; PINATA_JWT missing)
+  Fetch-back verify:      UNKNOWN (verify code present but no publication path executable)
 
 ENVIRONMENT VARIABLES
-  Missing critical vars:  RPC_URL, ETH_RPC_URL, AGI_ALPHA_MCP, AGENT_ADDRESS, AGENT_SUBDOMAIN, PINATA_JWT, ANTHROPIC_API_KEY, OPENAI_API_KEY
+  Missing critical vars:  RPC_URL, ETH_RPC_URL, AGI_ALPHA_MCP, AGENT_ADDRESS, AGENT_SUBDOMAIN, PINATA_JWT, AGENT_MERKLE_PROOF, ANTHROPIC_API_KEY, OPENAI_API_KEY
 
 SECURITY
   Signing code found:     NONE in agent/core execution-path scan
   Broadcast code found:   NONE in agent/core execution-path scan
-  Secret exposure risk:   YES (hardcoded 32-byte hex constants in fixtures/tests and UI constants require human classification review)
+  Secret exposure risk:   NO RUNTIME KEY MATERIAL DETECTED IN THIS SESSION ENV
   .gitignore visible:     YES
+
+RERUN-SPECIFIC SECRET CHECK
+  Requested check:        Verify private key / secret-backed env availability
+  Variables probed:       AGENT_PRIVATE_KEY, WALLET_PRIVATE_KEY, PRIVATE_KEY, MNEMONIC
+  Result:                 ALL MISSING in current runtime session environment
+  Operator implication:   Cannot validate key-backed paths without injected env/secrets in this container session
 
 ══════════════════════════════════════════════
 TRACK A — AGIJobManager v1
@@ -71,20 +77,20 @@ TRACK A — AGIJobManager v1
 
   Execution findings:
     Entry path valid:     YES (loops/AGIJobManager-v1/runner.js)
-    Artifact-first:       YES (discover/execute/validate/submit persist artifacts before advancing)
-    Atomic writes:        YES (tmp+rename used across state/artifact writes)
-    Crash recovery:       PARTIAL (working->assigned recovery and publication_pending preservation exist)
+    Artifact-first:       YES
+    Atomic writes:        YES
+    Crash recovery:       PARTIAL
     No signing path:      YES
     Safe dry-run path:    NO
 
   BLOCKERS:
-    1. MCP endpoint unavailable (AGI_ALPHA_MCP missing) — discovery/apply/confirm/submit cannot call protocol tools.
-    2. Chain RPC unavailable (RPC_URL/ETH_RPC_URL missing) — on-chain reads and pre-sign checks cannot run.
-    3. Agent identity env absent (AGENT_ADDRESS/AGENT_SUBDOMAIN) — assignment confirmation/apply path blocked.
-    4. PINATA_JWT missing — publication remains publication_pending and cannot complete tx package flow.
+    1. AGI_ALPHA_MCP missing — discovery/apply/confirm/submit protocol calls blocked.
+    2. RPC_URL/ETH_RPC_URL missing — chain reads, pre-sign checks, and contract reachability blocked.
+    3. AGENT_ADDRESS/AGENT_SUBDOMAIN missing — assignment and apply flow blocked.
+    4. PINATA_JWT missing — publication path blocked.
   
   WARNINGS:
-    1. axios and @supabase/supabase-js are not installed (not direct blockers for core Track A path in this snapshot).
+    1. axios and @supabase/supabase-js missing from runtime deps snapshot.
 
 ══════════════════════════════════════════════
 TRACK B — AGIJobDiscoveryPrime
@@ -107,21 +113,21 @@ TRACK B — AGIJobDiscoveryPrime
 
   Phase model:
     Enumerated phases:          COMPLETE
-    Hard stops at *_READY:      PARTIAL (READY statuses and gate checks exist; strict stop behavior depends on runtime operator discipline)
-    Salt never logged:          CANNOT CONFIRM (salt persisted to commitment_material.json with warning; no explicit redaction logging guard found)
+    Hard stops at *_READY:      PARTIAL
+    Salt never logged:          CANNOT CONFIRM
 
   Live state:
     Active procurements:        NONE
     Current visible phases:     NONE
 
   BLOCKERS:
-    1. ETH_RPC_URL missing — prime-client and prime-monitor cannot read chain.
-    2. AGI_ALPHA_MCP missing — linked job metadata fetch and some bridge flows are unavailable.
-    3. AGENT_ADDRESS/AGENT_SUBDOMAIN missing — commit/reveal/finalist/trial package generation blocked.
-    4. PINATA_JWT missing — application/trial/completion publication pipeline blocked.
-  
+    1. ETH_RPC_URL missing — prime-client and monitor chain reads blocked.
+    2. AGI_ALPHA_MCP missing — linked job metadata path blocked.
+    3. AGENT_ADDRESS/AGENT_SUBDOMAIN missing — commit/reveal/finalist/trial package path blocked.
+    4. PINATA_JWT missing — application/trial/completion publication blocked.
+
   WARNINGS:
-    1. No live proc_* state directories currently present under artifacts/ for active Prime operations.
+    1. No active proc_* state dirs visible for live execution.
 
 ══════════════════════════════════════════════
 CROSS-CUTTING
@@ -136,10 +142,10 @@ CROSS-CUTTING
 EXECUTIVE SUMMARY
 ══════════════════════════════════════════════
 
-This workspace contains substantial, coherent runtime code for both Track A and Track B, including orchestrators, state machines, review gates, artifact builders, and unsigned transaction packaging. The codebase is structurally operational but runtime-blocked in the present environment by missing critical environment variables. Track A fails immediately at protocol boundary calls because AGI_ALPHA_MCP is unset and cannot complete chain-dependent validations because RPC variables are unset. Track B has complete phase modeling and restart-safe state modules, but cannot execute monitor/orchestrator chain reads without ETH_RPC_URL and cannot run application publication and commitment preparation without AGENT_* and PINATA_JWT settings. No direct signing or broadcast execution-path calls were detected in agent/core scans, aligning with the stated signing boundary doctrine. OpenClaw local gateway health endpoint is down in this environment. Git metadata is visible and the workspace is on branch work at a clean baseline prior to this audit artifact generation. Archive and memory surfaces exist and appear usable, with a non-empty archive index and stored retrieval items.
+Audit rerun completed with explicit secret/env probing as requested. The current container session does not expose runtime secrets or key env vars required for RPC, MCP, identity, and IPFS operations. As a result, both Track A and Track B remain structurally present but operationally blocked in this runtime context. MCP and RPC smoke tests were re-run and failed with explicit missing-env errors (`AGI_ALPHA_MCP not set`, `RPC_URL/ETH_RPC_URL missing`). No execution-path signing or broadcasting calls were detected in agent/core scan scope. There is no evidence, in this session, of private key variables being loaded into process environment. Definitive operational readiness requires re-running this audit in a session where secrets are actually injected.
 
 IMMEDIATE ACTIONS REQUIRED
-  1. Export and validate required runtime env vars (CRITICAL): ETH_RPC_URL, AGI_ALPHA_MCP, AGENT_ADDRESS, AGENT_SUBDOMAIN, PINATA_JWT; then rerun Phase 1/2 connectivity checks.
-  2. Bring up OpenClaw gateway on localhost:18789 or update expected local runtime endpoint (HIGH).
-  3. Run a post-env verification pass for both tracks: MCP list_jobs, prime monitor once-cycle, and RPC reachability + contract bytecode checks (HIGH).
-  4. Define/confirm a safe Track A dry-run entry mode for runner lifecycle checks without side effects (MEDIUM).
+  1. Inject runtime secrets/env into this session (CRITICAL): ETH_RPC_URL and/or RPC_URL, AGI_ALPHA_MCP, AGENT_ADDRESS, AGENT_SUBDOMAIN, PINATA_JWT.
+  2. Re-run RPC + contract reachability checks immediately after env injection (HIGH).
+  3. Re-run MCP read path (`list_jobs`, `get_job`) after AGI_ALPHA_MCP injection (HIGH).
+  4. Re-run Track A/Track B one-cycle dry validations in a safe mode once dependencies are available (MEDIUM).
