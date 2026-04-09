@@ -29,3 +29,17 @@ The source markdown mixes numbered headings and free text in a way that is human
 - `requirements.v1.json` — canonical machine-checkable requirement set.
 - `requirements.schema.json` — schema contract for the canonical file.
 - `tests/spec/execution-tier-requirements.test.js` — Phase 0 acceptance checks for completeness and mapping integrity.
+
+## Phase 1 outputs
+
+- `agent/execution-tier/policies.js` — domain model/config for protocol tier policy, job feature schema, archetype defaults, tier rule schema, and escalation policy schema.
+- `agent/execution-tier/policy-engine.js` — deterministic accessors/enforcers over configuration data.
+- `tests/execution-tier-phase1.test.js` — validates policy constraints and schema enforcement behavior.
+
+## Phase 2 outputs
+
+- `agent/execution-tier/feature-extractor.js` — deterministic extraction of required complexity features from normalized job specs.
+- `agent/execution-tier/archetype-classifier.js` — rule-based archetype classification with reason payloads.
+- `agent/execution-tier/complexity-score.js` — interpretable complexity score + component-level reasoning.
+- `agent/execution-tier/tier-selector.js` — lowest-to-highest allowed-tier selection with rejection reasons for lower tiers.
+- `tests/execution-tier-phase2.test.js` — scenario tests for feature extraction, classification, complexity scoring, tier selection, and explainability payloads.
