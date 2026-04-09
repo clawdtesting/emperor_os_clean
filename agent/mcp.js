@@ -1,5 +1,7 @@
 // ./agent/mcp.js
-import "dotenv/config";
+import { loadEnv } from "./env.js";
+
+loadEnv();
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
