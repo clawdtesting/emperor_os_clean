@@ -57,3 +57,10 @@ The source markdown mixes numbered headings and free text in a way that is human
 - `agent/execution-tier/escalation-controller.js` — bounded escalation policy controller.
 - `agent/execution-tier/runtime-orchestrator.js` — end-to-end runtime execution with apply gate, bounded escalation, and pre-finalize validation gating.
 - `tests/execution-tier-phase4.test.js` — verifies budget guards, validation gates, repairability behavior, escalation behavior, and orchestration outcomes.
+
+## Phase 5 outputs
+
+- `agent/execution-tier/state-machine.js` — explicit stage-machine integration with artifact gating, schema checks, and atomic state writes.
+- Stage artifact requirements enforced before transition (`tier_selection.json`, `economic_check.json`, `apply_decision.json`, `validation.json`, `repair_logs.json`).
+- Signing-boundary enforcement blocks private-key/signed-tx style payloads from execution-tier artifacts.
+- `tests/execution-tier-phase5.test.js` — validates stage transitions, artifact/schema gating, atomic persistence behavior, and signing-boundary guards.
